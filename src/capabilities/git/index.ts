@@ -1,16 +1,34 @@
-const run = async (...args: string[]) => {
+import {
+  combineAsync,
+  complete,
+  errored,
+  fromPromise,
+  isComplete,
+  isErrored,
+  map,
+  type AsyncResult,
+} from "@attio/fetchable";
+import { logger } from "../../utils/logger.ts";
+import { errMsg } from "../../utils/errors.ts";
+
+type GitRun = { code: number; out: string; err: string };
+
+const run = async (...args: string[]): Promise<GitRun> => {
   const p = Bun.spawn(["git", ...args], { stdout: "pipe", stderr: "pipe" });
-  const [out, err] = await Promise.all([
+  const [out, err, code] = await Promise.all([
     new Response(p.stdout).text(),
     new Response(p.stderr).text(),
+    p.exited,
   ]);
-  return { code: await p.exited, out: out.trim(), err: err.trim() };
+  return { code, out: out.trim(), err: err.trim() };
 };
 
-export const git = async (...args: string[]) => {
-  const r = await run(...args);
-  if (r.code !== 0) throw new Error(r.err || `git ${args.join(" ")} failed`);
-  return r.out;
+/** git stdout on success, Errored on non-zero exit or spawn failure. */
+export const git = async (...args: string[]): AsyncResult<string, unknown> => {
+  const r = await fromPromise(run(...args));
+  if (isErrored(r)) return r;
+  const { code, out, err } = r.value;
+  return code === 0 ? complete(out) : errored(new Error(err || `git ${args.join(" ")} failed`));
 };
 
 export type Branch = {
@@ -27,22 +45,30 @@ export type Branch = {
 
 const SEP = "\x1f";
 
-export async function assertRepo() {
-  const r = await run("rev-parse", "--git-dir");
-  if (r.code !== 0) throw new Error("not a git repository");
-}
+export const assertRepo = async (): AsyncResult<void, unknown> => {
+  const r = await fromPromise(run("rev-parse", "--git-dir"));
+  if (isErrored(r)) return r;
+  return r.value.code === 0 ? complete(undefined) : errored(new Error("not a git repository"));
+};
 
-export async function defaultBranch() {
-  const r = await run("symbolic-ref", "--short", "refs/remotes/origin/HEAD");
-  if (r.code === 0) return r.out.replace(/^origin\//, "");
+/** fetch + prune so gone/upstream state is fresh; never errors (offline, no remote — stale data is fine) */
+export const fetchPrune = async () => {
+  const r = await git("fetch", "--prune");
+  if (isErrored(r)) logger.warn(`git fetch --prune failed: ${errMsg(r.error)}`);
+};
+
+export const defaultBranch = async (): Promise<string> => {
+  const head = await fromPromise(run("symbolic-ref", "--short", "refs/remotes/origin/HEAD"));
+  if (isComplete(head) && head.value.code === 0) return head.value.out.replace(/^origin\//, "");
   // ponytail: no origin/HEAD -> guess by convention
   for (const n of ["main", "master", "develop"]) {
-    if ((await run("rev-parse", "--verify", n)).code === 0) return n;
+    const found = await fromPromise(run("rev-parse", "--verify", n));
+    if (isComplete(found) && found.value.code === 0) return n;
   }
   return "HEAD";
-}
+};
 
-export async function listBranches(base: string): Promise<Branch[]> {
+export const listBranches = async (base: string): AsyncResult<Branch[], unknown> => {
   const fmt = [
     "%(refname:short)",
     "%(HEAD)",
@@ -52,34 +78,53 @@ export async function listBranches(base: string): Promise<Branch[]> {
     "%(upstream:track)",
   ].join(SEP);
 
-  const raw = await git(
-    "for-each-ref",
-    `--format=${fmt}`,
-    "--sort=-committerdate",
-    "refs/heads",
+  const raw = await git("for-each-ref", `--format=${fmt}`, "--sort=-committerdate", "refs/heads");
+  if (isErrored(raw)) return raw;
+  const mergedRaw = await fromPromise(run("branch", "--format=%(refname:short)", "--merged", base));
+  const merged = new Set(
+    isComplete(mergedRaw) ? mergedRaw.value.out.split("\n").filter(Boolean) : [],
   );
-  const mergedRaw = await run("branch", "--format=%(refname:short)", "--merged", base);
-  const merged = new Set(mergedRaw.out.split("\n").filter(Boolean));
 
-  return raw
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      const [name = "", head = "", date = "", subject = "", upstream = "", track = ""] =
-        line.split(SEP);
-      return {
-        name,
-        current: head === "*",
-        date,
-        subject,
-        upstream,
-        gone: track.includes("gone"),
-        ahead: Number(track.match(/ahead (\d+)/)?.[1] ?? 0),
-        behind: Number(track.match(/behind (\d+)/)?.[1] ?? 0),
-        merged: merged.has(name),
-      };
-    });
-}
+  return complete(
+    raw.value
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [name = "", head = "", date = "", subject = "", upstream = "", track = ""] =
+          line.split(SEP);
+        return {
+          name,
+          current: head === "*",
+          date,
+          subject,
+          upstream,
+          gone: track.includes("gone"),
+          ahead: Number(track.match(/ahead (\d+)/)?.[1] ?? 0),
+          behind: Number(track.match(/behind (\d+)/)?.[1] ?? 0),
+          merged: merged.has(name),
+        };
+      }),
+  );
+};
 
 export const deleteBranch = (name: string, force: boolean) =>
   run("branch", force ? "-D" : "-d", name);
+
+export type RepoSnapshot = { base: string; branches: Branch[] };
+
+/**
+ * assert repo + refresh remotes + resolve default branch in parallel, then list
+ * branches — one AsyncResult for the whole load, so callers check errors once.
+ */
+export const loadBranches = async (): AsyncResult<RepoSnapshot, unknown> => {
+  const setup = await combineAsync({
+    repo: assertRepo(),
+    base: fromPromise(defaultBranch()),
+    prune: fromPromise(fetchPrune()),
+  });
+  if (isErrored(setup)) return setup;
+  return map(await listBranches(setup.value.base), (branches) => ({
+    base: setup.value.base,
+    branches,
+  }));
+};

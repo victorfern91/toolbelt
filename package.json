@@ -11,6 +11,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@attio/fetchable": "^0.0.1-experimental.9",
     "immer": "^11.1.17",
     "ink": "^7.1.1",
     "react": "^19.2.8"

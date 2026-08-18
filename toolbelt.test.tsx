@@ -1,10 +1,11 @@
 // ponytail: one smoke test — fixture repo + one render. Fails if git parsing or the UI breaks.
 import { expect, test, beforeAll, afterAll } from "bun:test";
 import { render } from "ink-testing-library";
+import { valueOrElse } from "@attio/fetchable";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultBranch, listBranches } from "./src/capabilities/git/index.ts";
+import { defaultBranch, listBranches, type Branch } from "./src/capabilities/git/index.ts";
 import { BranchCleaner } from "./src/commands/branch-cleaner/command.tsx";
 
 const cwd = process.cwd();
@@ -31,7 +32,9 @@ afterAll(() => {
 test("branches are classified", async () => {
   const base = await defaultBranch();
   expect(base).toBe("main");
-  const byName = Object.fromEntries((await listBranches(base)).map((b) => [b.name, b]));
+  const byName = Object.fromEntries(
+    valueOrElse(await listBranches(base), [] as Branch[]).map((b) => [b.name, b]),
+  );
   expect(byName["main"]?.current).toBe(true);
   expect(byName["done-branch"]?.merged).toBe(true);
   expect(byName["wip"]?.merged).toBe(false);

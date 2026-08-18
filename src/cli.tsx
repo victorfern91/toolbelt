@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 import { useState } from "react";
 import { Box, render, Text, useApp, useInput } from "ink";
+import { isErrored } from "@attio/fetchable";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
 import { checkForUpdate, selfUpdate, VERSION } from "./update.ts";
 import { logger } from "./utils/logger.ts";
+import { errMsg } from "./utils/errors.ts";
 
 const TOOLS = tools();
 
@@ -52,7 +54,9 @@ function Menu() {
 const [cmd, ...rest] = Bun.argv.slice(2);
 
 const flagHelp = TOOLS.flatMap((t) =>
-  Object.entries(t.flags ?? {}).map(([flag, f]) => `  ${(t.name + " " + flag).padEnd(28)} ${f.desc}`),
+  Object.entries(t.flags ?? {}).map(
+    ([flag, f]) => `  ${(t.name + " " + flag).padEnd(28)} ${f.desc}`,
+  ),
 );
 
 const HELP = `toolbelt ${VERSION} — small dev tools, one binary
@@ -70,17 +74,17 @@ commands:
   --help                         this
 ${flagHelp.length ? `\nflags:\n${flagHelp.join("\n")}\n` : ""}`;
 
+const fatal = (e: unknown): 1 => {
+  logger.error(`✗ ${errMsg(e)}`);
+  return 1;
+};
+
 if (cmd === "-h" || cmd === "--help") {
   console.log(HELP);
 } else if (cmd === "-v" || cmd === "--version") {
   console.log(VERSION);
 } else if (cmd === "upgrade" || cmd === "update") {
-  process.exit(
-    await selfUpdate().catch((e: unknown) => {
-      logger.error(`✗ ${e instanceof Error ? e.message : e}`);
-      return 1;
-    }),
-  );
+  process.exit(await selfUpdate());
 } else {
   const latest = await checkForUpdate();
   if (latest) {
@@ -100,10 +104,8 @@ if (cmd === "-h" || cmd === "--help") {
     const flag = rest.find((a) => a in (tool.flags ?? {}));
     const action = flag ? tool.flags?.[flag] : undefined;
     if (action) {
-      await action.run().catch((e: unknown) => {
-        logger.error(`✗ ${e instanceof Error ? e.message : e}`);
-        process.exit(1);
-      });
+      const r = await action.run();
+      process.exit(isErrored(r) ? fatal(r.error) : 0);
     } else {
       render(tool.ui());
     }

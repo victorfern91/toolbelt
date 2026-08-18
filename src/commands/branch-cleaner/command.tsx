@@ -1,18 +1,22 @@
 import { useEffect, useMemo } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import {
-  assertRepo,
-  defaultBranch,
+  complete,
+  fromPromise,
+  isComplete,
+  isErrored,
+  valueOrElse,
+  type AsyncResult,
+} from "@attio/fetchable";
+import {
   deleteBranch,
   listBranches,
+  loadBranches,
   type Branch,
 } from "../../capabilities/git/index.ts";
 import { registerTool } from "../registry.ts";
-import {
-  BranchCleanerProvider,
-  useBranchCleanerState,
-  type Result,
-} from "./store.ts";
+import { errMsg } from "../../utils/errors.ts";
+import { BranchCleanerProvider, useBranchCleanerState, type Result } from "./store.ts";
 
 const PAGE = 12;
 
@@ -31,30 +35,34 @@ function BranchCleanerView() {
   const { base, branches, error, loading, cursor, picked, force, confirming, results } = state;
 
   useEffect(() => {
-    (async () => {
-      try {
-        await assertRepo();
-        const b = await defaultBranch();
-        dispatch({ type: "loaded", base: b, branches: await listBranches(b) });
-      } catch (e) {
-        dispatch({ type: "failed", error: e instanceof Error ? e.message : String(e) });
-      }
+    void (async () => {
+      const res = await loadBranches();
+      if (isErrored(res)) return dispatch({ type: "failed", error: errMsg(res.error) });
+      dispatch({ type: "loaded", base: res.value.base, branches: res.value.branches });
     })();
   }, []);
 
   const view = useMemo(() => {
     const start = Math.max(0, Math.min(cursor - (PAGE >> 1), branches.length - PAGE));
-    return { start: Math.max(0, start), rows: branches.slice(Math.max(0, start), Math.max(0, start) + PAGE) };
+    return {
+      start: Math.max(0, start),
+      rows: branches.slice(Math.max(0, start), Math.max(0, start) + PAGE),
+    };
   }, [branches, cursor]);
 
   const runDelete = async () => {
     const names = branches.filter((b) => picked.has(b.name)).map((b) => b.name);
     const out: Result[] = [];
     for (const name of names) {
-      const r = await deleteBranch(name, force);
-      out.push({ name, ok: r.code === 0, err: r.err.split("\n")[0] ?? "" });
+      const r = await fromPromise(deleteBranch(name, force));
+      out.push({
+        name,
+        ok: isComplete(r) && r.value.code === 0,
+        err: isComplete(r) ? (r.value.err.split("\n")[0] ?? "") : errMsg(r.error),
+      });
     }
-    dispatch({ type: "deleted", results: out, branches: await listBranches(base) });
+    const refreshed = await listBranches(base);
+    dispatch({ type: "deleted", results: out, branches: valueOrElse(refreshed, branches) });
   };
 
   useInput((input, key) => {
@@ -109,14 +117,18 @@ function BranchCleanerView() {
         </Text>
         <Text dimColor>
           {" "}
-          base <Text color="cyan">{base}</Text> · {branches.length} branches ·{" "}
-          {picked.size} selected{force ? " · " : ""}
+          base <Text color="cyan">{base}</Text> · {branches.length} branches · {picked.size}{" "}
+          selected{force ? " · " : ""}
         </Text>
-        {force ? <Text color="red" bold>FORCE</Text> : null}
+        {force ? (
+          <Text color="red" bold>
+            FORCE
+          </Text>
+        ) : null}
       </Box>
 
       <Box flexDirection="column" marginTop={1}>
-        {view.start > 0 ? <Text dimColor>  ↑ {view.start} more</Text> : null}
+        {view.start > 0 ? <Text dimColor> ↑ {view.start} more</Text> : null}
         {view.rows.map((b, i) => {
           const idx = view.start + i;
           const on = idx === cursor;
@@ -140,7 +152,7 @@ function BranchCleanerView() {
           );
         })}
         {view.start + PAGE < branches.length ? (
-          <Text dimColor>  ↓ {branches.length - view.start - PAGE} more</Text>
+          <Text dimColor> ↓ {branches.length - view.start - PAGE} more</Text>
         ) : null}
       </Box>
 
@@ -170,14 +182,15 @@ export function BranchCleaner() {
   );
 }
 
-export async function printBranches() {
-  await assertRepo();
-  const base = await defaultBranch();
-  for (const b of await listBranches(base)) {
+export const printBranches = async (): AsyncResult<void, unknown> => {
+  const res = await loadBranches();
+  if (isErrored(res)) return res;
+  for (const b of res.value.branches) {
     const state = b.current ? "current" : b.gone ? "gone" : b.merged ? "merged" : "active";
     console.log(`${state.padEnd(8)} ${b.name.padEnd(40)} ${b.date}`);
   }
-}
+  return complete(undefined);
+};
 
 registerTool({
   name: "branch-cleaner",

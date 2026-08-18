@@ -1,3 +1,5 @@
+import { complete, errored, fromPromise, isErrored, type AsyncResult } from "@attio/fetchable";
+
 type FetchOptions = {
   headers?: Record<string, string>;
   timeoutMs?: number;
@@ -12,15 +14,14 @@ export class FetchError extends Error {
   }
 }
 
-/** Thin wrapper over fetch; throws FetchError on non-2xx. */
-async function get(url: string, options: FetchOptions = {}): Promise<Response> {
-  const { headers, timeoutMs = 4000 } = options;
-  const res = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) throw new FetchError(url, res.status);
-  return res;
-}
+/** Thin wrapper over fetch: Complete<Response> on 2xx, Errored otherwise (FetchError on non-2xx). */
+const get = async (
+  url: string,
+  { headers, timeoutMs = 4000 }: FetchOptions = {},
+): AsyncResult<Response, unknown> => {
+  const res = await fromPromise(fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) }));
+  if (isErrored(res)) return res;
+  return res.value.ok ? complete(res.value) : errored(new FetchError(url, res.value.status));
+};
 
 export const fetcher = { get };
