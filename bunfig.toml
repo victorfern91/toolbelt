@@ -1,0 +1,4 @@
+# Public registry, explicitly — a machine-level ~/.npmrc pointing at a private
+# mirror otherwise bakes unreachable URLs into bun.lock and breaks CI.
+[install]
+registry = "https://registry.npmjs.org"

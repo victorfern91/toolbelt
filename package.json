@@ -1,0 +1,30 @@
+{
+  "name": "toolbelt",
+  "type": "module",
+  "private": false,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.18",
+    "ink-testing-library": "^4.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "immer": "^11.1.17",
+    "ink": "^7.1.1",
+    "react": "^19.2.8"
+  },
+  "version": "0.1.0",
+  "description": "Small dev tools in one Bun binary, with a React (Ink) TUI",
+  "license": "MIT",
+  "bin": {
+    "toolbelt": "./src/cli.tsx"
+  },
+  "scripts": {
+    "start": "bun src/cli.tsx",
+    "test": "bun test",
+    "build": "bun run scripts/build.ts",
+    "build:all": "bun run scripts/build.ts --all"
+  }
+}
