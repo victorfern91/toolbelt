@@ -4,6 +4,7 @@ import { Box, render, Text, useApp, useInput } from "ink";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
 import { checkForUpdate, selfUpdate, VERSION } from "./update.ts";
+import { logger } from "./utils/logger.ts";
 
 const TOOLS = tools();
 
@@ -76,7 +77,7 @@ if (cmd === "-h" || cmd === "--help") {
 } else if (cmd === "upgrade" || cmd === "update") {
   process.exit(
     await selfUpdate().catch((e: unknown) => {
-      console.error(`✗ ${e instanceof Error ? e.message : e}`);
+      logger.error(`✗ ${e instanceof Error ? e.message : e}`);
       return 1;
     }),
   );
@@ -93,14 +94,14 @@ if (cmd === "-h" || cmd === "--help") {
   } else {
     const tool = findTool(cmd);
     if (!tool) {
-      console.error(`unknown tool: ${cmd}\nrun \`toolbelt --help\``);
+      logger.error(`unknown tool: ${cmd}\nrun \`toolbelt --help\``);
       process.exit(1);
     }
     const flag = rest.find((a) => a in (tool.flags ?? {}));
     const action = flag ? tool.flags?.[flag] : undefined;
     if (action) {
       await action.run().catch((e: unknown) => {
-        console.error(`✗ ${e instanceof Error ? e.message : e}`);
+        logger.error(`✗ ${e instanceof Error ? e.message : e}`);
         process.exit(1);
       });
     } else {

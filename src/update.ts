@@ -2,6 +2,8 @@ import { basename, dirname, join } from "node:path";
 import { chmodSync, mkdirSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import pkg from "../package.json" with { type: "json" };
+import { FetchError, fetcher } from "./utils/fetcher.ts";
+import { logger } from "./utils/logger.ts";
 
 export const VERSION = pkg.version;
 export const REPO = "victorfern91/toolbelt";
@@ -32,12 +34,18 @@ export function isNewer(remote: string, local: string) {
 }
 
 async function fetchLatest(timeoutMs = 4000) {
-  const res = await fetch(LATEST, {
-    headers: { accept: "application/vnd.github+json" },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (res.status === 404) throw new Error(`no releases published for ${REPO} yet`);
-  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetcher.get(LATEST, {
+      headers: { accept: "application/vnd.github+json" },
+      timeoutMs,
+    });
+  } catch (e) {
+    if (e instanceof FetchError && e.status === 404) {
+      throw new Error(`no releases published for ${REPO} yet`);
+    }
+    throw e;
+  }
   return (await res.json()) as {
     tag_name: string;
     assets: { name: string; browser_download_url: string }[];
@@ -68,7 +76,7 @@ export async function checkForUpdate(): Promise<string | null> {
   return isNewer(cached.latest, VERSION) ? cached.latest : null;
 }
 
-export async function selfUpdate(log = console.log) {
+export async function selfUpdate(log = logger.info) {
   if (!isBinary()) {
     log("running from source — use `git pull && bun install` instead");
     return 1;
@@ -88,8 +96,8 @@ export async function selfUpdate(log = console.log) {
   }
 
   log(`updating ${VERSION} -> ${release.tag_name}…`);
-  const res = await fetch(asset.browser_download_url);
-  if (!res.ok) throw new Error(`download failed: ${res.status}`);
+  // Binaries can be tens of MB — give the download a longer window.
+  const res = await fetcher.get(asset.browser_download_url, { timeoutMs: 60_000 });
 
   // Same directory so the rename is atomic and stays on one filesystem.
   const target = process.execPath;
