@@ -37,36 +37,33 @@ bun run build                   # dist/toolbelt for this platform
 bun run build:all               # every release target
 ```
 
-## branch-cleaner
-
-Lists local branches with their state against the default branch, pick what dies.
-
-| state | meaning |
-|---|---|
-| `current` | checked out, never deletable |
-| `merged` | already merged into base |
-| `gone` | upstream deleted on the remote |
-| `active` | unmerged work |
-
-| key | action |
-|---|---|
-| `↑↓` / `jk` | move |
-| `space` | toggle branch |
-| `a` | toggle all safe (merged + gone) |
-| `f` | force mode (`git branch -D`) |
-| `enter` | delete selected, asks to confirm |
-| `q` | quit |
-
-Without force it uses `git branch -d`, so git refuses to drop unmerged work.
-
-```bash
-./toolbelt branch-cleaner --list   # plain output, no UI
-```
-
 ## Adding a tool
 
-1. Create `src/commands/my-tool.tsx` — an Ink component plus a `registerTool({ name, desc, ui, flags })` call at the bottom (copy `branch-cleaner.tsx`).
-2. Add one side-effect import for it in `src/commands/index.ts`.
+Commands self-register. Each command is a folder under `src/commands/`:
+
+```
+src/commands/my-tool/
+├── command.tsx   # Ink component + registerTool() call at the bottom
+└── store.ts      # optional: state for the UI
+```
+
+`command.tsx` calls `registerTool({ name, desc, ui, flags })` (see
+`src/commands/branch-cleaner/command.tsx`):
+
+- `name` / `desc` — how the tool shows up in the menu and `--help`
+- `ui` — the Ink component to render
+- `flags` — optional non-interactive entry points, e.g. `--list`
+
+`store.ts` keeps UI state out of the component: an immer-backed reducer
+behind a context provider, exposed as a `useMyToolState()` hook (see
+`src/commands/branch-cleaner/store.ts`). Shared capabilities (git, …)
+live under `src/capabilities/`, not in the command.
+
+Then add one side-effect import in `src/commands/index.ts`:
+
+```ts
+import "./my-tool/command.tsx";
+```
 
 The interactive menu, `--help`, and direct dispatch all read the registry
 (`src/commands/registry.ts`), so those two steps are the whole wiring —
@@ -80,6 +77,4 @@ all four targets and attaches them to the release; `install.sh` and
 
 ```bash
 git tag v0.1.0 && git push --tags
-```
-
-MIT
+```´
