@@ -1,14 +1,21 @@
 {
   "name": "toolbelt",
-  "type": "module",
+  "version": "0.1.1",
   "private": false,
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/react": "^19.2.18",
-    "ink-testing-library": "^4.0.0"
+  "description": "Small dev tools in one Bun binary, with a React (Ink) TUI",
+  "license": "MIT",
+  "bin": {
+    "toolbelt": "./src/cli.tsx"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "type": "module",
+  "scripts": {
+    "start": "bun src/cli.tsx",
+    "test": "bun test",
+    "lint": "bun node_modules/oxlint/dist/cli.js",
+    "format": "bun node_modules/oxfmt/dist/cli.js",
+    "format:check": "bun node_modules/oxfmt/dist/cli.js --check",
+    "build": "bun run scripts/build.ts",
+    "build:all": "bun run scripts/build.ts --all"
   },
   "dependencies": {
     "@attio/fetchable": "^0.0.1-experimental.9",
@@ -16,16 +23,14 @@
     "ink": "^7.1.1",
     "react": "^19.2.8"
   },
-  "version": "0.1.1",
-  "description": "Small dev tools in one Bun binary, with a React (Ink) TUI",
-  "license": "MIT",
-  "bin": {
-    "toolbelt": "./src/cli.tsx"
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.18",
+    "ink-testing-library": "^4.0.0",
+    "oxfmt": "^0.64.0",
+    "oxlint": "^1.79.0"
   },
-  "scripts": {
-    "start": "bun src/cli.tsx",
-    "test": "bun test",
-    "build": "bun run scripts/build.ts",
-    "build:all": "bun run scripts/build.ts --all"
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }

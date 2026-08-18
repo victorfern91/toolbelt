@@ -69,7 +69,8 @@ function reducer(state: State, action: Action): State {
         );
         break;
       case "toggle":
-        draft.picked.has(action.name) ? draft.picked.delete(action.name) : draft.picked.add(action.name);
+        if (draft.picked.has(action.name)) draft.picked.delete(action.name);
+        else draft.picked.add(action.name);
         break;
       case "pick-safe": {
         const targets = state.branches.filter(safe).map((b) => b.name);

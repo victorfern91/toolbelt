@@ -33,6 +33,8 @@ toolbelt upgrade                # replaces the running binary in place
 bun install
 ./toolbelt                      # dev run, no compile
 bun test
+bun run lint                    # oxlint
+bun run format                  # oxfmt (format:check to verify only)
 bun run build                   # dist/toolbelt for this platform
 bun run build:all               # every release target
 ```
@@ -77,4 +79,4 @@ all four targets and attaches them to the release; `install.sh` and
 
 ```bash
 git tag v0.1.0 && git push --tags
-```´
+```

@@ -19,6 +19,4 @@ function makeLogger(minLevel: Level = "info") {
 
 export type Logger = ReturnType<typeof makeLogger>;
 
-export const logger = makeLogger(
-  process.env.TOOLBELT_DEBUG ? "debug" : "info",
-);
+export const logger = makeLogger(process.env.TOOLBELT_DEBUG ? "debug" : "info");
