@@ -15,7 +15,7 @@
     "ink": "^7.1.1",
     "react": "^19.2.8"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Small dev tools in one Bun binary, with a React (Ink) TUI",
   "license": "MIT",
   "bin": {
