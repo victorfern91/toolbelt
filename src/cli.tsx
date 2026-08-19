@@ -89,13 +89,13 @@ if (cmd === "-h" || cmd === "--help") {
   const latest = await checkForUpdate();
   if (latest) {
     const line = `  🚀 toolbelt ${latest} is available  (you have ${VERSION})  `;
-    const cmd  = `     run \x1b[36;1mtoolbelt upgrade\x1b[0m\x1b[33m to update                  `;
-    const bar  = "─".repeat(line.length - 2);
+    const cmd = `     run \x1b[36;1mtoolbelt upgrade\x1b[0m\x1b[33m to update                  `;
+    const bar = "─".repeat(line.length - 2);
     console.log(
       `\x1b[33m┌${bar}┐\x1b[0m\n` +
-      `\x1b[33m│\x1b[0m\x1b[1m${line}\x1b[0m\x1b[33m│\x1b[0m\n` +
-      `\x1b[33m│\x1b[0m${cmd}\x1b[33m│\x1b[0m\n` +
-      `\x1b[33m└${bar}┘\x1b[0m\n`,
+        `\x1b[33m│\x1b[0m\x1b[1m${line}\x1b[0m\x1b[33m│\x1b[0m\n` +
+        `\x1b[33m│\x1b[0m${cmd}\x1b[33m│\x1b[0m\n` +
+        `\x1b[33m└${bar}┘\x1b[0m\n`,
     );
   }
 

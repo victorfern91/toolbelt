@@ -103,14 +103,13 @@ function step(icon: string, color: string, msg: string) {
 function progress(downloaded: number, total: number | null) {
   const pct = total ? Math.round((downloaded / total) * 100) : null;
   const mb = (n: number) => `${(n / 1_048_576).toFixed(1)} MB`;
-  const bar =
-    total
-      ? (() => {
-          const width = 28;
-          const filled = Math.round((downloaded / total) * width);
-          return `[${"█".repeat(filled)}${"░".repeat(width - filled)}] ${pct}%`;
-        })()
-      : "…";
+  const bar = total
+    ? (() => {
+        const width = 28;
+        const filled = Math.round((downloaded / total) * width);
+        return `[${"█".repeat(filled)}${"░".repeat(width - filled)}] ${pct}%`;
+      })()
+    : "…";
   process.stdout.write(
     `${C.clearLine}${C.cyan}↓${C.reset} downloading  ${bar}  ${mb(downloaded)}${total ? ` / ${mb(total)}` : ""}`,
   );
@@ -142,7 +141,11 @@ export async function selfUpdate(log = logger.info) {
     return 1;
   }
 
-  step("◆", C.yellow, `${C.bold}${VERSION}${C.reset} → ${C.bold}${C.green}${release.tag_name}${C.reset}`);
+  step(
+    "◆",
+    C.yellow,
+    `${C.bold}${VERSION}${C.reset} → ${C.bold}${C.green}${release.tag_name}${C.reset}`,
+  );
 
   // Stream the download so we can show real progress.
   const fetchRes = await fromPromise(
