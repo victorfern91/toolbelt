@@ -88,8 +88,14 @@ if (cmd === "-h" || cmd === "--help") {
 } else {
   const latest = await checkForUpdate();
   if (latest) {
+    const line = `  🚀 toolbelt ${latest} is available  (you have ${VERSION})  `;
+    const cmd  = `     run \x1b[36;1mtoolbelt upgrade\x1b[0m\x1b[33m to update                  `;
+    const bar  = "─".repeat(line.length - 2);
     console.log(
-      `\x1b[35m▲\x1b[0m toolbelt ${latest} available (you have ${VERSION}) — run \x1b[36mtoolbelt upgrade\x1b[0m\n`,
+      `\x1b[33m┌${bar}┐\x1b[0m\n` +
+      `\x1b[33m│\x1b[0m\x1b[1m${line}\x1b[0m\x1b[33m│\x1b[0m\n` +
+      `\x1b[33m│\x1b[0m${cmd}\x1b[33m│\x1b[0m\n` +
+      `\x1b[33m└${bar}┘\x1b[0m\n`,
     );
   }
 
