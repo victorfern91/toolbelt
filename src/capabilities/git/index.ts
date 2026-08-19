@@ -60,11 +60,10 @@ export const fetchPrune = async () => {
 export const defaultBranch = async (): Promise<string> => {
   const head = await fromPromise(run("symbolic-ref", "--short", "refs/remotes/origin/HEAD"));
   if (isComplete(head) && head.value.code === 0) return head.value.out.replace(/^origin\//, "");
-  // ponytail: no origin/HEAD -> guess by convention
-  for (const n of ["main", "master", "develop"]) {
-    const found = await fromPromise(run("rev-parse", "--verify", n));
-    if (isComplete(found) && found.value.code === 0) return n;
-  }
+  // If origin/HEAD isn't available, fall back to the currently checked-out branch,
+  // instead of guessing common branch names like `main` / `master`.
+  const cur = await fromPromise(run("symbolic-ref", "--short", "HEAD"));
+  if (isComplete(cur) && cur.value.code === 0) return cur.value.out;
   return "HEAD";
 };
 
