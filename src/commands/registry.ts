@@ -3,11 +3,19 @@ import type { Result } from "neverthrow";
 
 export type ToolFlag = { desc: string; run: () => Promise<Result<void, unknown>> };
 
+export type ToolArgs = {
+  usage: string;
+  desc: string;
+  run: (rest: string[]) => Promise<Result<void, unknown>>;
+};
+
 export type Tool = {
   name: string;
   desc: string;
   ui: () => ReactNode;
   flags?: Record<string, ToolFlag>;
+  /** leftover argv after the tool name, when no flag matched (e.g. `tb switch main`) */
+  args?: ToolArgs;
 };
 
 // Tools self-register at import time (see src/commands/index.ts). The menu,

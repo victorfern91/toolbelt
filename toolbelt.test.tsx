@@ -4,8 +4,15 @@ import { render } from "ink-testing-library";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultBranch, listBranches, type Branch } from "./src/capabilities/git/index.ts";
+import {
+  defaultBranch,
+  listBranches,
+  resolveBranch,
+  switchBranch,
+  type Branch,
+} from "./src/capabilities/git/index.ts";
 import { BranchCleaner } from "./src/commands/branch-cleaner/command.tsx";
+import { Switch } from "./src/commands/switch/command.tsx";
 
 const cwd = process.cwd();
 let repo: string;
@@ -49,6 +56,25 @@ test("UI renders the branch list", async () => {
   expect(frame).toContain("done-branch");
   expect(frame).toContain("merged");
   expect(frame).toContain("current");
+});
+
+test("UI renders the switch list", async () => {
+  const { lastFrame, unmount } = render(<Switch />);
+  await Bun.sleep(300);
+  const frame = lastFrame() ?? "";
+  unmount();
+  expect(frame).toContain("switch");
+  expect(frame).toContain("done-branch");
+  expect(frame).toContain("wip");
+});
+
+test("switch checks out a local branch", async () => {
+  expect(resolveBranch("wip", ["main", "wip", "done-branch"])).toBe("wip");
+  const r = await switchBranch("wip");
+  expect(r.isOk()).toBe(true);
+  const cur = Bun.spawnSync(["git", "branch", "--show-current"], { cwd: repo });
+  expect(cur.stdout.toString().trim()).toBe("wip");
+  await switchBranch("main");
 });
 
 test("version compare", async () => {

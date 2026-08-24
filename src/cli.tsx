@@ -61,7 +61,10 @@ usage:
   toolbelt <tool> [flags]
 
 tools:
-${TOOLS.map((t) => `  ${t.name.padEnd(18)} ${t.desc}`).join("\n")}
+${TOOLS.map((t) => {
+  const label = t.args ? `${t.name} ${t.args.usage}` : t.name;
+  return `  ${label.padEnd(22)} ${t.desc}`;
+}).join("\n")}
 
 commands:
   upgrade                        download the latest release over this binary
@@ -107,6 +110,12 @@ if (cmd === "-h" || cmd === "--help") {
     if (action) {
       const r = await action.run();
       process.exit(r.isErr() ? fatal(r.error) : 0);
+    } else if (rest.length && tool.args) {
+      const r = await tool.args.run(rest);
+      process.exit(r.isErr() ? fatal(r.error) : 0);
+    } else if (rest.length) {
+      logger.error(`unknown flag: ${rest[0]}\nrun \`toolbelt --help\``);
+      process.exit(1);
     } else {
       render(tool.ui());
     }

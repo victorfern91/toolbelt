@@ -109,12 +109,40 @@ export type RepoSnapshot = { base: string; branches: Branch[] };
 /**
  * assert repo + refresh remotes + resolve default branch in parallel, then list
  * branches — one Result for the whole load, so callers check errors once.
+ * Pass `{ prune: false }` to skip fetch (local-only tools like switch).
  */
-export const loadBranches = async (): Promise<Result<RepoSnapshot, unknown>> => {
-  const [repo, base] = await Promise.all([assertRepo(), defaultBranch(), fetchPrune()]);
+export const loadBranches = async (
+  opts: { prune?: boolean } = {},
+): Promise<Result<RepoSnapshot, unknown>> => {
+  const [repo, base] = await Promise.all([
+    assertRepo(),
+    defaultBranch(),
+    opts.prune === false ? undefined : fetchPrune(),
+  ]);
   if (repo.isErr()) return err(repo.error);
   return (await listBranches(base)).map((branches) => ({
     base,
     branches,
   }));
+};
+
+export const switchBranch = (name: string) =>
+  name === "-" ? git("switch", "-") : git("switch", "--", name);
+
+/** Exact name, then unique prefix, then unique substring. `-` is previous branch. */
+export const resolveBranch = (query: string, names: string[]): string | Error => {
+  if (query === "-") return "-";
+  if (names.includes(query)) return query;
+  const q = query.toLowerCase();
+  const pick = (hits: string[]) =>
+    hits.length === 1
+      ? hits[0]!
+      : hits.length > 1
+        ? new Error(`ambiguous: ${hits.join(", ")}`)
+        : null;
+  const prefixed = pick(names.filter((n) => n.toLowerCase().startsWith(q)));
+  if (prefixed !== null) return prefixed;
+  const contained = pick(names.filter((n) => n.toLowerCase().includes(q)));
+  if (contained !== null) return contained;
+  return new Error(`no local branch matching "${query}"`);
 };
