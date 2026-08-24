@@ -6,6 +6,7 @@ import pkg from "../package.json" with { type: "json" };
 import { FetchError, fetcher } from "./utils/fetcher.ts";
 import { logger } from "./utils/logger.ts";
 import { errMsg } from "./utils/errors.ts";
+import { ansi } from "./ui/theme.ts";
 
 export const VERSION = pkg.version;
 export const REPO = "victorfern91/toolbelt";
@@ -76,19 +77,8 @@ export async function checkForUpdate(): Promise<string | null> {
   return isNewer(cached.latest, VERSION) ? cached.latest : null;
 }
 
-const C = {
-  reset: "\x1b[0m",
-  bold: "\x1b[1m",
-  dim: "\x1b[2m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-  red: "\x1b[31m",
-  clearLine: "\x1b[2K\r",
-} as const;
-
-function step(icon: string, color: string, msg: string) {
-  process.stdout.write(`${color}${icon}${C.reset} ${msg}\n`);
+function step(icon: string, paint: string, msg: string) {
+  process.stdout.write(`${paint}${icon}${ansi.reset} ${msg}\n`);
 }
 
 function progress(downloaded: number, total: number | null) {
@@ -102,7 +92,7 @@ function progress(downloaded: number, total: number | null) {
       })()
     : "…";
   process.stdout.write(
-    `${C.clearLine}${C.cyan}↓${C.reset} downloading  ${bar}  ${mb(downloaded)}${total ? ` / ${mb(total)}` : ""}`,
+    `${ansi.clearLine}${ansi.accent}↓${ansi.reset} downloading  ${bar}  ${mb(downloaded)}${total ? ` / ${mb(total)}` : ""}`,
   );
 }
 
@@ -112,30 +102,30 @@ export async function selfUpdate(log = logger.info) {
     return 1;
   }
 
-  step("◆", C.cyan, "checking for latest release…");
+  step("◆", ansi.accent, "checking for latest release…");
   const res = await fetchLatest();
   if (res.isErr()) {
-    step("✗", C.red, errMsg(res.error));
+    step("✗", ansi.danger, errMsg(res.error));
     return 1;
   }
   const release = res.value;
 
   if (!isNewer(release.tag_name, VERSION)) {
-    step("✓", C.green, `already on the latest version (${C.bold}${VERSION}${C.reset})`);
+    step("✓", ansi.ok, `already on the latest version (${ansi.bold}${VERSION}${ansi.reset})`);
     return 0;
   }
 
   const want = assetName();
   const asset = release.assets.find((a) => a.name === want);
   if (!asset) {
-    step("✗", C.red, `release ${release.tag_name} has no build for ${want}`);
+    step("✗", ansi.danger, `release ${release.tag_name} has no build for ${want}`);
     return 1;
   }
 
   step(
     "◆",
-    C.yellow,
-    `${C.bold}${VERSION}${C.reset} → ${C.bold}${C.green}${release.tag_name}${C.reset}`,
+    ansi.warn,
+    `${ansi.bold}${VERSION}${ansi.reset} → ${ansi.bold}${ansi.ok}${release.tag_name}${ansi.reset}`,
   );
 
   // Stream the download so we can show real progress.
@@ -144,7 +134,7 @@ export async function selfUpdate(log = logger.info) {
     (e) => e,
   );
   if (fetchRes.isErr() || !fetchRes.value.ok || !fetchRes.value.body) {
-    step("✗", C.red, `download failed`);
+    step("✗", ansi.danger, `download failed`);
     return 1;
   }
 
@@ -164,9 +154,9 @@ export async function selfUpdate(log = logger.info) {
   }
   // Move past the progress line.
   process.stdout.write("\n");
-  step("✓", C.green, `downloaded ${(downloaded / 1_048_576).toFixed(1)} MB`);
+  step("✓", ansi.ok, `downloaded ${(downloaded / 1_048_576).toFixed(1)} MB`);
 
-  step("◆", C.cyan, "installing…");
+  step("◆", ansi.accent, "installing…");
   const binary = Bun.concatArrayBuffers(chunks);
 
   const target = process.execPath;
@@ -180,14 +170,14 @@ export async function selfUpdate(log = logger.info) {
     (e) => e,
   );
   if (swapped.isErr()) {
-    step("✗", C.red, `could not replace ${target}: ${errMsg(swapped.error)}`);
+    step("✗", ansi.danger, `could not replace ${target}: ${errMsg(swapped.error)}`);
     process.stdout.write(
-      `${C.dim}  retry with write access, or reinstall:\n` +
-        `  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash${C.reset}\n`,
+      `${ansi.dim}  retry with write access, or reinstall:\n` +
+        `  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash${ansi.reset}\n`,
     );
     return 1;
   }
 
-  step("✓", C.green, `${C.bold}toolbelt ${release.tag_name}${C.reset} installed — enjoy! 🚀`);
+  step("✓", ansi.ok, `${ansi.bold}toolbelt ${release.tag_name}${ansi.reset} installed — enjoy! 🚀`);
   return 0;
 }

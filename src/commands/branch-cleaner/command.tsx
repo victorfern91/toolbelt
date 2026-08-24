@@ -7,6 +7,8 @@ import {
   loadBranches,
   type Branch,
 } from "../../capabilities/git/index.ts";
+import { Busy, Caret, Done, Fail, Hints, Page, Screen } from "../../ui/screen.tsx";
+import { color } from "../../ui/theme.ts";
 import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
 import {
@@ -19,12 +21,12 @@ const PAGE = 12;
 
 const tag = (b: Branch) =>
   b.current
-    ? { label: "current", color: "cyan" as const }
+    ? { label: "current", color: color.accent }
     : b.gone
-      ? { label: "gone", color: "red" as const }
+      ? { label: "gone", color: color.danger }
       : b.merged
-        ? { label: "merged", color: "green" as const }
-        : { label: "active", color: "yellow" as const };
+        ? { label: "merged", color: color.ok }
+        : { label: "active", color: color.warn };
 
 function BranchCleanerView() {
   const { exit } = useApp();
@@ -84,16 +86,20 @@ function BranchCleanerView() {
     if (key.return) dispatch({ type: "confirm" });
   });
 
-  if (loading) return <Text color="cyan">Reading branches…</Text>;
-  if (error) return <Text color="red">✗ {error}</Text>;
+  if (loading) return <Busy>Reading branches…</Busy>;
+  if (error) return <Fail>{error}</Fail>;
 
   if (results) {
     const failed = results.filter((r) => !r.ok);
     return (
-      <Box flexDirection="column">
+      <Done>
         {results.map((r) => (
           <Text key={r.name}>
-            {r.ok ? <Text color="green">✓ deleted </Text> : <Text color="red">✗ kept </Text>}
+            {r.ok ? (
+              <Text color={color.ok}>✓ deleted </Text>
+            ) : (
+              <Text color={color.danger}>✗ kept </Text>
+            )}
             <Text bold>{r.name}</Text>
             {r.err ? <Text dimColor> — {r.err}</Text> : null}
           </Text>
@@ -101,42 +107,59 @@ function BranchCleanerView() {
         {failed.length > 0 ? (
           <Text dimColor>press f then enter next time to force-delete unmerged branches</Text>
         ) : null}
-        <Text dimColor>press any key to exit</Text>
-      </Box>
+      </Done>
     );
   }
 
   return (
-    <Box flexDirection="column">
-      <Box>
-        <Text backgroundColor="magenta" color="black" bold>
-          {" branch-cleaner "}
-        </Text>
-        <Text dimColor>
-          {" "}
-          base <Text color="cyan">{base}</Text> · {branches.length} branches · {picked.size}{" "}
-          selected{force ? " · " : ""}
-        </Text>
-        {force ? (
-          <Text color="red" bold>
-            FORCE
+    <Screen
+      badge="branch-cleaner"
+      subtitle={
+        <>
+          <Text dimColor>
+            {" "}
+            base <Text color={color.accent}>{base}</Text> · {branches.length} branches ·{" "}
+            {picked.size} selected{force ? " · " : ""}
           </Text>
-        ) : null}
-      </Box>
-
-      <Box flexDirection="column" marginTop={1}>
-        {view.start > 0 ? <Text dimColor> ↑ {view.start} more</Text> : null}
+          {force ? (
+            <Text color={color.danger} bold>
+              FORCE
+            </Text>
+          ) : null}
+        </>
+      }
+      footer={
+        confirming ? (
+          <Text color={color.warn} bold>
+            Delete {picked.size} branch{picked.size === 1 ? "" : "es"}
+            {force ? " (FORCE, unmerged work is lost)" : ""}? y/n
+          </Text>
+        ) : (
+          <Hints
+            keys={[
+              ["↑↓/jk", "move"],
+              ["space", "pick"],
+              ["a", "all safe"],
+              ["f", "force"],
+              ["enter", "delete"],
+              ["q", "quit"],
+            ]}
+          />
+        )
+      }
+    >
+      <Page offset={view.start} size={PAGE} total={branches.length}>
         {view.rows.map((b, i) => {
           const idx = view.start + i;
           const on = idx === cursor;
           const t = tag(b);
           return (
             <Box key={b.name}>
-              <Text color={on ? "magenta" : undefined}>{on ? "❯ " : "  "}</Text>
-              <Text color={picked.has(b.name) ? "red" : undefined}>
+              <Caret on={on} />
+              <Text color={picked.has(b.name) ? color.danger : undefined}>
                 {picked.has(b.name) ? "◉ " : b.current ? "· " : "◯ "}
               </Text>
-              <Text bold={on} color={b.current ? "cyan" : undefined}>
+              <Text bold={on} color={b.current ? color.accent : undefined}>
                 {b.name.padEnd(34).slice(0, 34)}
               </Text>
               <Text color={t.color}> {t.label.padEnd(8)}</Text>
@@ -148,26 +171,8 @@ function BranchCleanerView() {
             </Box>
           );
         })}
-        {view.start + PAGE < branches.length ? (
-          <Text dimColor> ↓ {branches.length - view.start - PAGE} more</Text>
-        ) : null}
-      </Box>
-
-      <Box marginTop={1}>
-        {confirming ? (
-          <Text color="yellow" bold>
-            Delete {picked.size} branch{picked.size === 1 ? "" : "es"}
-            {force ? " (FORCE, unmerged work is lost)" : ""}? y/n
-          </Text>
-        ) : (
-          <Text dimColor>
-            <Text color="magenta">↑↓/jk</Text> move · <Text color="magenta">space</Text> pick ·{" "}
-            <Text color="magenta">a</Text> all safe · <Text color="magenta">f</Text> force ·{" "}
-            <Text color="magenta">enter</Text> delete · <Text color="magenta">q</Text> quit
-          </Text>
-        )}
-      </Box>
-    </Box>
+      </Page>
+    </Screen>
   );
 }
 

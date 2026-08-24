@@ -1,8 +1,10 @@
 #!/usr/bin/env bun
 import { useState } from "react";
-import { Box, render, Text, useApp, useInput } from "ink";
+import { render, useApp, useInput } from "ink";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
+import { Hints, MenuRow, Screen } from "./ui/screen.tsx";
+import { ansi } from "./ui/theme.ts";
 import { checkForUpdate, selfUpdate, VERSION } from "./update.ts";
 import { logger } from "./utils/logger.ts";
 import { errMsg } from "./utils/errors.ts";
@@ -25,28 +27,22 @@ function Menu() {
   if (chosen !== null) return TOOLS[chosen]!.ui();
 
   return (
-    <Box flexDirection="column">
-      <Text backgroundColor="magenta" color="black" bold>
-        {" toolbelt "}
-      </Text>
-      <Box flexDirection="column" marginTop={1}>
-        {TOOLS.map((t, i) => (
-          <Text key={t.name}>
-            <Text color={i === cursor ? "magenta" : undefined}>{i === cursor ? "❯ " : "  "}</Text>
-            <Text bold={i === cursor} color="cyan">
-              {t.name.padEnd(18)}
-            </Text>
-            <Text dimColor>{t.desc}</Text>
-          </Text>
-        ))}
-      </Box>
-      <Box marginTop={1}>
-        <Text dimColor>
-          <Text color="magenta">↑↓</Text> move · <Text color="magenta">enter</Text> run ·{" "}
-          <Text color="magenta">q</Text> quit
-        </Text>
-      </Box>
-    </Box>
+    <Screen
+      badge="toolbelt"
+      footer={
+        <Hints
+          keys={[
+            ["↑↓", "move"],
+            ["enter", "run"],
+            ["q", "quit"],
+          ]}
+        />
+      }
+    >
+      {TOOLS.map((t, i) => (
+        <MenuRow key={t.name} on={i === cursor} label={t.name} desc={t.desc} width={20} />
+      ))}
+    </Screen>
   );
 }
 
@@ -88,13 +84,13 @@ if (cmd === "-h" || cmd === "--help") {
   const latest = await checkForUpdate();
   if (latest) {
     const line = `  🚀 toolbelt ${latest} is available  (you have ${VERSION})  `;
-    const cmd = `     run \x1b[36;1mtoolbelt upgrade\x1b[0m\x1b[33m to update                  `;
+    const cmd = `     run ${ansi.bold}${ansi.accent}toolbelt upgrade${ansi.reset}${ansi.warn} to update                  `;
     const bar = "─".repeat(line.length - 2);
     console.log(
-      `\x1b[33m┌${bar}┐\x1b[0m\n` +
-        `\x1b[33m│\x1b[0m\x1b[1m${line}\x1b[0m\x1b[33m│\x1b[0m\n` +
-        `\x1b[33m│\x1b[0m${cmd}\x1b[33m│\x1b[0m\n` +
-        `\x1b[33m└${bar}┘\x1b[0m\n`,
+      `${ansi.warn}┌${bar}┐${ansi.reset}\n` +
+        `${ansi.warn}│${ansi.reset}${ansi.bold}${line}${ansi.reset}${ansi.warn}│${ansi.reset}\n` +
+        `${ansi.warn}│${ansi.reset}${cmd}${ansi.warn}│${ansi.reset}\n` +
+        `${ansi.warn}└${bar}┘${ansi.reset}\n`,
     );
   }
 
