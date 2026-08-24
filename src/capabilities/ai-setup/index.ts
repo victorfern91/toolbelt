@@ -113,7 +113,11 @@ const addSkill = async (
 ): Promise<Step> => {
   const npx = pickNpx(npxCandidates(), npxWorks);
   if (!npx) return { name, ok: false, detail: "npx not found — install Node.js" };
-  const r = await tryRun(npx, skillAddArgs(source, skills), npxEnv(npx, { ...process.env, CI: "1" }));
+  const r = await tryRun(
+    npx,
+    skillAddArgs(source, skills),
+    npxEnv(npx, { ...process.env, CI: "1" }),
+  );
   const landed = skillsInstalledAt(homedir(), skills);
   if (landed.ok) return { name, ok: true, detail: `${verb} (${landed.where})` };
   if (r.isErr()) return { name, ok: false, detail: errMsg(r.error) };
