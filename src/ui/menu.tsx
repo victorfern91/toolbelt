@@ -3,8 +3,15 @@ import { useApp, useInput } from "ink";
 import { tools, type Tool } from "../commands/registry.ts";
 import { NavProvider } from "./nav.ts";
 import { Hints, MenuRow, Screen } from "./screen.tsx";
+import { UpdateBanner } from "./update-banner.tsx";
 
-export function Menu({ items = tools() }: { items?: Tool[] }) {
+export function Menu({
+  items = tools(),
+  updateCheck,
+}: {
+  items?: Tool[];
+  updateCheck?: Promise<string | null>;
+}) {
   const { exit } = useApp();
   const [cursor, setCursor] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -17,30 +24,38 @@ export function Menu({ items = tools() }: { items?: Tool[] }) {
     if (key.return) setChosen(cursor);
   });
 
+  const banner = updateCheck ? <UpdateBanner check={updateCheck} /> : null;
+
   if (chosen !== null) {
     return (
-      <NavProvider back={() => setChosen(null)} quit={exit}>
-        {items[chosen]!.ui()}
-      </NavProvider>
+      <>
+        {banner}
+        <NavProvider back={() => setChosen(null)} quit={exit}>
+          {items[chosen]!.ui()}
+        </NavProvider>
+      </>
     );
   }
 
   return (
-    <Screen
-      badge="toolbelt"
-      footer={
-        <Hints
-          keys={[
-            ["↑↓", "move"],
-            ["enter", "run"],
-            ["q", "quit"],
-          ]}
-        />
-      }
-    >
-      {items.map((t, i) => (
-        <MenuRow key={t.name} on={i === cursor} label={t.name} desc={t.desc} width={20} />
-      ))}
-    </Screen>
+    <>
+      {banner}
+      <Screen
+        badge="toolbelt"
+        footer={
+          <Hints
+            keys={[
+              ["↑↓", "move"],
+              ["enter", "run"],
+              ["q", "quit"],
+            ]}
+          />
+        }
+      >
+        {items.map((t, i) => (
+          <MenuRow key={t.name} on={i === cursor} label={t.name} desc={t.desc} width={20} />
+        ))}
+      </Screen>
+    </>
   );
 }

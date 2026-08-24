@@ -27,3 +27,17 @@ test("escape from a tool returns to the menu", async () => {
   expect(lastFrame() ?? "").not.toContain("inside-tool");
   unmount();
 });
+
+test("shows update banner when the parallel check finds a newer release", async () => {
+  let resolve!: (v: string | null) => void;
+  const updateCheck = new Promise<string | null>((r) => {
+    resolve = r;
+  });
+  const { lastFrame, unmount } = render(<Menu items={items} updateCheck={updateCheck} />);
+  expect(lastFrame() ?? "").not.toContain("is available");
+  resolve("v9.9.9");
+  await Bun.sleep(50);
+  expect(lastFrame() ?? "").toContain("toolbelt v9.9.9 is available");
+  expect(lastFrame() ?? "").toContain("toolbelt upgrade");
+  unmount();
+});

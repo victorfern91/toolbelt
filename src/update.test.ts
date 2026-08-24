@@ -1,10 +1,24 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { chmodSync, lstatSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ensureTbSymlink, installTarget } from "./update.ts";
+import { checkForUpdate, ensureTbSymlink, installTarget } from "./update.ts";
 
 const dir = () => mkdtempSync(join(tmpdir(), "tb-link-"));
+
+const prevFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = prevFetch;
+});
+
+const mockRelease = (tag: string) => {
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ tag_name: tag, assets: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+};
 
 test("creates tb → toolbelt next to the binary", () => {
   const root = dir();
@@ -55,4 +69,21 @@ test("links tb next to toolbelt even when invoked as tb", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("checkForUpdate returns the newer tag from GitHub", async () => {
+  mockRelease("v0.1.9");
+  expect(await checkForUpdate("0.1.7")).toBe("v0.1.9");
+});
+
+test("checkForUpdate returns null when already current", async () => {
+  mockRelease("v0.1.9");
+  expect(await checkForUpdate("0.1.9")).toBeNull();
+});
+
+test("checkForUpdate returns null when the request fails", async () => {
+  globalThis.fetch = async () => {
+    throw new Error("offline");
+  };
+  expect(await checkForUpdate("0.1.0")).toBeNull();
 });

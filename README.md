@@ -24,8 +24,9 @@ toolbelt --help
 
 ## Updates
 
-Every run checks GitHub for a newer release, cached for 24h, capped at a 1.5s
-timeout — offline or rate-limited just means no banner.
+Startup kicks off a GitHub release check in parallel with the TUI / command
+(1.5s timeout). If a newer version exists, an update banner appears — offline
+or rate-limited just means no banner.
 
 ```bash
 toolbelt upgrade                # replaces the running binary in place

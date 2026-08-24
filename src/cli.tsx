@@ -3,18 +3,19 @@ import { render } from "ink";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
 import { Menu } from "./ui/menu.tsx";
-import { ansi } from "./ui/theme.ts";
 import {
   checkForUpdate,
   ensureTbSymlink,
   installTarget,
   isBinary,
+  maybePrintUpdateBanner,
   selfUpdate,
   VERSION,
 } from "./update.ts";
 import { printUpgradeAi } from "./capabilities/ai-setup/index.ts";
 import { logger } from "./utils/logger.ts";
 import { errMsg } from "./utils/errors.ts";
+import { UpdateBanner } from "./ui/update-banner.tsx";
 
 if (isBinary()) {
   try {
@@ -73,21 +74,11 @@ if (cmd === "-h" || cmd === "--help") {
   }
   process.exit(await selfUpdate());
 } else {
-  const latest = await checkForUpdate();
-  if (latest) {
-    const line = `  🚀 toolbelt ${latest} is available  (you have ${VERSION})  `;
-    const cmd = `     run ${ansi.bold}${ansi.accent}toolbelt upgrade${ansi.reset}${ansi.warn} to update                  `;
-    const bar = "─".repeat(line.length - 2);
-    console.log(
-      `${ansi.warn}┌${bar}┐${ansi.reset}\n` +
-        `${ansi.warn}│${ansi.reset}${ansi.bold}${line}${ansi.reset}${ansi.warn}│${ansi.reset}\n` +
-        `${ansi.warn}│${ansi.reset}${cmd}${ansi.warn}│${ansi.reset}\n` +
-        `${ansi.warn}└${bar}┘${ansi.reset}\n`,
-    );
-  }
+  // Kick off in parallel with the command / TUI — never block startup on GitHub.
+  const updateCheck = checkForUpdate();
 
   if (!cmd) {
-    render(<Menu />);
+    render(<Menu updateCheck={updateCheck} />);
   } else {
     const tool = findTool(cmd);
     if (!tool) {
@@ -98,15 +89,22 @@ if (cmd === "-h" || cmd === "--help") {
     const action = flag ? tool.flags?.[flag] : undefined;
     if (action) {
       const r = await action.run();
+      await maybePrintUpdateBanner(updateCheck);
       process.exit(r.isErr() ? fatal(r.error) : 0);
     } else if (rest.length && tool.args) {
       const r = await tool.args.run(rest);
+      await maybePrintUpdateBanner(updateCheck);
       process.exit(r.isErr() ? fatal(r.error) : 0);
     } else if (rest.length) {
       logger.error(`unknown flag: ${rest[0]}\nrun \`toolbelt --help\``);
       process.exit(1);
     } else {
-      render(tool.ui());
+      render(
+        <>
+          <UpdateBanner check={updateCheck} />
+          {tool.ui()}
+        </>,
+      );
     }
   }
 }

@@ -1,7 +1,6 @@
 import { basename, dirname, join } from "node:path";
-import { chmodSync, lstatSync, mkdirSync, renameSync, symlinkSync } from "node:fs";
-import { homedir } from "node:os";
-import { err, Result, ResultAsync } from "neverthrow";
+import { chmodSync, lstatSync, renameSync, symlinkSync } from "node:fs";
+import { err, ResultAsync, type Result } from "neverthrow";
 import pkg from "../package.json" with { type: "json" };
 import { FetchError, fetcher } from "./utils/fetcher.ts";
 import { logger } from "./utils/logger.ts";
@@ -12,19 +11,11 @@ export const VERSION = pkg.version;
 export const REPO = "victorfern91/toolbelt";
 
 const LATEST = `https://api.github.com/repos/${REPO}/releases/latest`;
-const CACHE = join(
-  process.env.XDG_CACHE_HOME || join(homedir(), ".cache"),
-  "toolbelt",
-  "update.json",
-);
-const DAY = 86_400_000;
 
 type Release = {
   tag_name: string;
   assets: { name: string; browser_download_url: string }[];
 };
-
-type CacheEntry = { checkedAt: number; latest: string };
 
 export const assetName = () => `toolbelt-${process.platform}-${process.arch}`;
 
@@ -73,30 +64,31 @@ const fetchLatest = async (timeoutMs = 4000): Promise<Result<Release, unknown>> 
 };
 
 /**
- * Latest version if an update exists, else null. Answers from a 24h cache,
- * so at most one network call per day and never longer than the timeout.
+ * Latest version if an update exists, else null.
+ * Always hits GitHub (1.5s cap); offline / rate-limited → null, never throws.
  */
-export async function checkForUpdate(): Promise<string | null> {
-  let cached = (
-    await ResultAsync.fromPromise(Bun.file(CACHE).json() as Promise<CacheEntry>, (e) => e)
-  ).unwrapOr(undefined);
+export async function checkForUpdate(localVersion = VERSION): Promise<string | null> {
+  const latest = await fetchLatest(1500);
+  if (latest.isErr()) return null;
+  return isNewer(latest.value.tag_name, localVersion) ? latest.value.tag_name : null;
+}
 
-  if (!cached || Date.now() - cached.checkedAt > DAY) {
-    // offline, rate-limited, no release yet — never block the tool
-    const latest = await fetchLatest(1500);
-    if (latest.isErr()) return null;
-    cached = { checkedAt: Date.now(), latest: latest.value.tag_name };
-    if (
-      Result.fromThrowable(
-        () => mkdirSync(dirname(CACHE), { recursive: true }),
-        (e) => e,
-      )().isErr()
-    )
-      return null;
-    if ((await ResultAsync.fromPromise(Bun.write(CACHE, JSON.stringify(cached)), (e) => e)).isErr())
-      return null;
-  }
-  return isNewer(cached.latest, VERSION) ? cached.latest : null;
+/** stdout banner for non-interactive commands */
+export function printUpdateBanner(latest: string) {
+  const line = `  🚀 toolbelt ${latest} is available  (you have ${VERSION})  `;
+  const hint = `     run ${ansi.bold}${ansi.accent}toolbelt upgrade${ansi.reset}${ansi.warn} to update                  `;
+  const bar = "─".repeat(line.length - 2);
+  console.log(
+    `${ansi.warn}┌${bar}┐${ansi.reset}\n` +
+      `${ansi.warn}│${ansi.reset}${ansi.bold}${line}${ansi.reset}${ansi.warn}│${ansi.reset}\n` +
+      `${ansi.warn}│${ansi.reset}${hint}${ansi.warn}│${ansi.reset}\n` +
+      `${ansi.warn}└${bar}┘${ansi.reset}\n`,
+  );
+}
+
+export async function maybePrintUpdateBanner(check: Promise<string | null>) {
+  const latest = await check;
+  if (latest) printUpdateBanner(latest);
 }
 
 function step(icon: string, paint: string, msg: string) {
