@@ -6,6 +6,7 @@ import { findTool, tools } from "./commands/registry.ts";
 import { Hints, MenuRow, Screen } from "./ui/screen.tsx";
 import { ansi } from "./ui/theme.ts";
 import { checkForUpdate, selfUpdate, VERSION } from "./update.ts";
+import { printUpgradeAi } from "./capabilities/ai-setup/index.ts";
 import { logger } from "./utils/logger.ts";
 import { errMsg } from "./utils/errors.ts";
 
@@ -68,6 +69,7 @@ ${TOOLS.map((t) => {
 
 commands:
   upgrade                        download the latest release over this binary
+  upgrade ai                     update rtk, caveman, grill-me + refresh global rules
   --version                      print version
   --help                         this
 ${flagHelp.length ? `\nflags:\n${flagHelp.join("\n")}\n` : ""}`;
@@ -82,6 +84,14 @@ if (cmd === "-h" || cmd === "--help") {
 } else if (cmd === "-v" || cmd === "--version") {
   console.log(VERSION);
 } else if (cmd === "upgrade" || cmd === "update") {
+  if (rest[0] === "ai") {
+    const r = await printUpgradeAi();
+    process.exit(r.isErr() ? fatal(r.error) : 0);
+  }
+  if (rest.length) {
+    logger.error(`unknown upgrade target: ${rest[0]}\nrun \`toolbelt --help\``);
+    process.exit(1);
+  }
   process.exit(await selfUpdate());
 } else {
   const latest = await checkForUpdate();

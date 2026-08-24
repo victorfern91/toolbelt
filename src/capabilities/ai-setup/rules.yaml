@@ -1,0 +1,8 @@
+- id: concise-reporting
+  title: Reporting
+  body: When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
+
+- id: use-rtk
+  title: RTK
+  body: >
+    Prefix token-heavy shell commands with `rtk` so output costs fewer prompt tokens (git, ls, cat, grep/rg, test runners, docker, kubectl).  Example: `rtk git status`, not `git status`. Use `rtk proxy <cmd>` only when unfiltered output is required.
