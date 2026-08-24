@@ -29,6 +29,8 @@ toolbelt upgrade                # replaces the running binary in place
 
 ## From source
 
+Requires [Bun](https://bun.com) 1.4 or newer.
+
 ```bash
 bun install
 ./toolbelt                      # dev run, no compile
