@@ -1,13 +1,5 @@
 import { basename, dirname, join } from "node:path";
-import {
-  chmodSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  renameSync,
-  symlinkSync,
-  unlinkSync,
-} from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, renameSync, symlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { err, Result, ResultAsync } from "neverthrow";
 import pkg from "../package.json" with { type: "json" };
@@ -39,17 +31,20 @@ export const assetName = () => `toolbelt-${process.platform}-${process.arch}`;
 /** true when running as the compiled binary rather than `bun src/cli.tsx` */
 export const isBinary = () => !basename(process.execPath).startsWith("bun");
 
-/** ~/.local/bin/tb -> toolbelt so either name works after install or upgrade */
-export function ensureTbSymlink(execPath = process.execPath) {
-  const dir = dirname(execPath);
-  const toolbelt = join(dir, "toolbelt");
-  const tb = join(dir, "tb");
-  if (existsSync(tb)) {
-    const stat = lstatSync(tb);
-    if (stat.isSymbolicLink()) return;
-    unlinkSync(tb);
+/**
+ * `tb` → `toolbelt` in the same directory as the binary.
+ * Creates the link when missing; leaves an existing file or other symlink alone.
+ * Returns true when a new link was written.
+ */
+export function ensureTbSymlink(execPath = process.execPath): boolean {
+  const tb = join(dirname(execPath), "tb");
+  try {
+    lstatSync(tb);
+    return false;
+  } catch {
+    symlinkSync("toolbelt", tb);
+    return true;
   }
-  symlinkSync(basename(toolbelt), tb);
 }
 
 /** Always replace the canonical `toolbelt` binary, even when invoked as `tb`. */
@@ -139,6 +134,13 @@ export async function selfUpdate(log = logger.info) {
 
   if (!isNewer(release.tag_name, VERSION)) {
     step("✓", ansi.ok, `already on the latest version (${ansi.bold}${VERSION}${ansi.reset})`);
+    try {
+      if (ensureTbSymlink(installTarget())) {
+        step("✓", ansi.ok, `linked ${ansi.bold}tb${ansi.reset} → toolbelt`);
+      }
+    } catch {
+      // no write access — binary is still current
+    }
     return 0;
   }
 
@@ -193,7 +195,6 @@ export async function selfUpdate(log = logger.info) {
       await Bun.write(tmp, binary);
       chmodSync(tmp, 0o755);
       renameSync(tmp, target);
-      ensureTbSymlink(target);
     })(),
     (e) => e,
   );
@@ -204,6 +205,14 @@ export async function selfUpdate(log = logger.info) {
         `  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash${ansi.reset}\n`,
     );
     return 1;
+  }
+
+  try {
+    if (ensureTbSymlink(target)) {
+      step("✓", ansi.ok, `linked ${ansi.bold}tb${ansi.reset} → toolbelt`);
+    }
+  } catch (e) {
+    step("…", ansi.warn, `could not link tb: ${errMsg(e)}`);
   }
 
   step("✓", ansi.ok, `${ansi.bold}toolbelt ${release.tag_name}${ansi.reset} installed — enjoy! 🚀`);

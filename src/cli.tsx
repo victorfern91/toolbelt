@@ -5,10 +5,25 @@ import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
 import { Hints, MenuRow, Screen } from "./ui/screen.tsx";
 import { ansi } from "./ui/theme.ts";
-import { checkForUpdate, selfUpdate, VERSION } from "./update.ts";
+import {
+  checkForUpdate,
+  ensureTbSymlink,
+  installTarget,
+  isBinary,
+  selfUpdate,
+  VERSION,
+} from "./update.ts";
 import { printUpgradeAi } from "./capabilities/ai-setup/index.ts";
 import { logger } from "./utils/logger.ts";
 import { errMsg } from "./utils/errors.ts";
+
+if (isBinary()) {
+  try {
+    ensureTbSymlink(installTarget());
+  } catch {
+    // no write access — commands still work
+  }
+}
 
 const TOOLS = tools();
 
