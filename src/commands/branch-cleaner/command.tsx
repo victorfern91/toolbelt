@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useInput } from "ink";
 import { err, ok, ResultAsync, type Result } from "neverthrow";
 import {
   deleteBranch,
@@ -8,6 +8,7 @@ import {
   type Branch,
 } from "../../capabilities/git/index.ts";
 import { Busy, Caret, Done, Fail, Hints, Page, Screen } from "../../ui/screen.tsx";
+import { isQuit, leaveHintKeys, useNav } from "../../ui/nav.ts";
 import { color } from "../../ui/theme.ts";
 import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
@@ -29,7 +30,7 @@ const tag = (b: Branch) =>
         : { label: "active", color: color.warn };
 
 function BranchCleanerView() {
-  const { exit } = useApp();
+  const { back, quit, nested } = useNav();
   const { state, dispatch } = useBranchCleanerState();
   const { base, branches, error, loading, cursor, picked, force, confirming, results } = state;
 
@@ -66,15 +67,16 @@ function BranchCleanerView() {
 
   useInput((input, key) => {
     if (results) {
-      exit();
-      return;
+      if (isQuit(input, key)) return quit();
+      return back();
     }
     if (confirming) {
       if (input === "y") void runDelete();
       if (input === "n" || key.escape) dispatch({ type: "cancel" });
       return;
     }
-    if (input === "q" || key.escape || (key.ctrl && input === "c")) return exit();
+    if (isQuit(input, key)) return quit();
+    if (key.escape) return back();
     if (key.downArrow || input === "j") dispatch({ type: "move", delta: 1 });
     if (key.upArrow || input === "k") dispatch({ type: "move", delta: -1 });
     if (input === " ") {
@@ -142,7 +144,7 @@ function BranchCleanerView() {
               ["a", "all safe"],
               ["f", "force"],
               ["enter", "delete"],
-              ["q", "quit"],
+              ...leaveHintKeys(nested),
             ]}
           />
         )

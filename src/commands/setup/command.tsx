@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Text, useApp, useInput } from "ink";
+import { Text, useInput } from "ink";
 import { printSetupAi, setupAi, type Step } from "../../capabilities/ai-setup/index.ts";
 import { Busy, Done, Fail, Hints, Mark, MenuRow, Screen } from "../../ui/screen.tsx";
+import { isQuit, leaveHintKeys, useNav } from "../../ui/nav.ts";
 import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
 
@@ -10,7 +11,7 @@ const RECIPES = [
 ] as const;
 
 function SetupView() {
-  const { exit } = useApp();
+  const { back, quit, nested } = useNav();
   const [cursor, setCursor] = useState(0);
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<Step[] | null>(null);
@@ -30,8 +31,12 @@ function SetupView() {
 
   useInput((input, key) => {
     if (running) return;
-    if (steps || error) return exit();
-    if (input === "q" || key.escape || (key.ctrl && input === "c")) return exit();
+    if (steps || error) {
+      if (isQuit(input, key)) return quit();
+      return back();
+    }
+    if (isQuit(input, key)) return quit();
+    if (key.escape) return back();
     if (key.downArrow || input === "j") setCursor((c) => (c + 1) % RECIPES.length);
     if (key.upArrow || input === "k") setCursor((c) => (c - 1 + RECIPES.length) % RECIPES.length);
     if (key.return) void run();
@@ -57,15 +62,7 @@ function SetupView() {
     <Screen
       badge="setup"
       subtitle={<Text dimColor> machine-wide installs</Text>}
-      footer={
-        <Hints
-          keys={[
-            ["↑↓/jk", "move"],
-            ["enter", "run"],
-            ["q", "quit"],
-          ]}
-        />
-      }
+      footer={<Hints keys={[["↑↓/jk", "move"], ["enter", "run"], ...leaveHintKeys(nested)]} />}
     >
       {RECIPES.map((r, i) => (
         <MenuRow key={r.name} on={i === cursor} label={r.name} desc={r.desc} width={8} />

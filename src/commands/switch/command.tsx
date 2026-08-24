@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useInput } from "ink";
 import { err, ok, type Result } from "neverthrow";
 import {
   loadBranches,
@@ -8,6 +8,7 @@ import {
   type Branch,
 } from "../../capabilities/git/index.ts";
 import { Busy, Caret, Fail, Hints, Page, Screen } from "../../ui/screen.tsx";
+import { isQuit, leaveHintKeys, useNav } from "../../ui/nav.ts";
 import { color } from "../../ui/theme.ts";
 import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
@@ -27,7 +28,7 @@ async function checkoutResolved(
 }
 
 function SwitchView() {
-  const { exit } = useApp();
+  const { back, quit, nested } = useNav();
   const { state, dispatch } = useSwitchState();
   const { branches, error, loading, cursor, status } = state;
 
@@ -52,12 +53,16 @@ function SwitchView() {
     if (r.isErr()) return dispatch({ type: "status", status: `✗ ${errMsg(r.error)}` });
     const already = name === branches.find((b) => b.current)?.name;
     console.log(already ? `already on ${r.value}` : `✓ ${r.value}`);
-    exit();
+    quit();
   };
 
   useInput((input, key) => {
-    if (error) return exit();
-    if (input === "q" || key.escape || (key.ctrl && input === "c")) return exit();
+    if (error) {
+      if (isQuit(input, key)) return quit();
+      return back();
+    }
+    if (isQuit(input, key)) return quit();
+    if (key.escape) return back();
     if (key.downArrow || input === "j") dispatch({ type: "move", delta: 1 });
     if (key.upArrow || input === "k") dispatch({ type: "move", delta: -1 });
     if (key.return) {
@@ -77,13 +82,7 @@ function SwitchView() {
         status ? (
           <Text color={color.danger}>{status}</Text>
         ) : (
-          <Hints
-            keys={[
-              ["↑↓/jk", "move"],
-              ["enter", "switch"],
-              ["q", "quit"],
-            ]}
-          />
+          <Hints keys={[["↑↓/jk", "move"], ["enter", "switch"], ...leaveHintKeys(nested)]} />
         )
       }
     >

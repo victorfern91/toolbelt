@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Text } from "ink";
+import { useNav } from "./nav.ts";
 import { color } from "./theme.ts";
 
 export function Screen({
@@ -104,10 +105,11 @@ export function Mark({ ok }: { ok: boolean }) {
 }
 
 export function Done({ children }: { children: ReactNode }) {
+  const { nested } = useNav();
   return (
     <Box flexDirection="column">
       {children}
-      <Text dimColor>press any key to exit</Text>
+      <Text dimColor>press any key to {nested ? "go back" : "exit"}</Text>
     </Box>
   );
 }

@@ -1,9 +1,8 @@
 #!/usr/bin/env bun
-import { useState } from "react";
-import { render, useApp, useInput } from "ink";
+import { render } from "ink";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
-import { Hints, MenuRow, Screen } from "./ui/screen.tsx";
+import { Menu } from "./ui/menu.tsx";
 import { ansi } from "./ui/theme.ts";
 import {
   checkForUpdate,
@@ -26,41 +25,6 @@ if (isBinary()) {
 }
 
 const TOOLS = tools();
-
-function Menu() {
-  const { exit } = useApp();
-  const [cursor, setCursor] = useState(0);
-  const [chosen, setChosen] = useState<number | null>(null);
-
-  useInput((input, key) => {
-    if (chosen !== null) return;
-    if (input === "q" || key.escape) return exit();
-    if (key.downArrow || input === "j") setCursor((c) => (c + 1) % TOOLS.length);
-    if (key.upArrow || input === "k") setCursor((c) => (c - 1 + TOOLS.length) % TOOLS.length);
-    if (key.return) setChosen(cursor);
-  });
-
-  if (chosen !== null) return TOOLS[chosen]!.ui();
-
-  return (
-    <Screen
-      badge="toolbelt"
-      footer={
-        <Hints
-          keys={[
-            ["↑↓", "move"],
-            ["enter", "run"],
-            ["q", "quit"],
-          ]}
-        />
-      }
-    >
-      {TOOLS.map((t, i) => (
-        <MenuRow key={t.name} on={i === cursor} label={t.name} desc={t.desc} width={20} />
-      ))}
-    </Screen>
-  );
-}
 
 const [cmd, ...rest] = Bun.argv.slice(2);
 
