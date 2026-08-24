@@ -3,7 +3,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { err, ok, ResultAsync, type Result } from "neverthrow";
 import { applyAgentRules } from "./rules.ts";
-import { npxCandidates, npxWorks, pickNpx, skillAddArgs, skillInstalledAt } from "./skills-cli.ts";
+import {
+  npxCandidates,
+  npxEnv,
+  npxWorks,
+  pickNpx,
+  skillAddArgs,
+  skillsInstalledAt,
+} from "./skills-cli.ts";
 import { errMsg } from "../../utils/errors.ts";
 import { ansi } from "../../ui/theme.ts";
 
@@ -11,13 +18,17 @@ export type Step = { name: string; ok: boolean; detail: string };
 
 type Run = { code: number; out: string; err: string };
 
-const run = async (cmd: string, args: string[]): Promise<Run> => {
+const run = async (
+  cmd: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = { ...process.env, CI: "1" },
+): Promise<Run> => {
   const p = Bun.spawn([cmd, ...args], {
     stdout: "pipe",
     stderr: "pipe",
     stdin: "ignore",
     cwd: homedir(),
-    env: { ...process.env, CI: "1" },
+    env,
   });
   const [out, stderr, code] = await Promise.all([
     new Response(p.stdout).text(),
@@ -27,7 +38,8 @@ const run = async (cmd: string, args: string[]): Promise<Run> => {
   return { code, out: out.trim(), err: stderr.trim() };
 };
 
-const tryRun = (cmd: string, args: string[]) => ResultAsync.fromPromise(run(cmd, args), (e) => e);
+const tryRun = (cmd: string, args: string[], env?: NodeJS.ProcessEnv) =>
+  ResultAsync.fromPromise(run(cmd, args, env), (e) => e);
 
 const detailOf = (r: Run) =>
   r.err.split("\n").at(-1) || r.out.split("\n").at(-1) || `exit ${r.code}`;
@@ -101,11 +113,12 @@ const addSkill = async (
 ): Promise<Step> => {
   const npx = pickNpx(npxCandidates(), npxWorks);
   if (!npx) return { name, ok: false, detail: "npx not found — install Node.js" };
-  const r = await tryRun(npx, skillAddArgs(source, skills));
-  const where = skillInstalledAt(homedir(), name);
-  if (where) return { name, ok: true, detail: `${verb} (${where})` };
+  const r = await tryRun(npx, skillAddArgs(source, skills), npxEnv(npx, { ...process.env, CI: "1" }));
+  const landed = skillsInstalledAt(homedir(), skills);
+  if (landed.ok) return { name, ok: true, detail: `${verb} (${landed.where})` };
   if (r.isErr()) return { name, ok: false, detail: errMsg(r.error) };
-  return { name, ok: false, detail: detailOf(r.value) };
+  const miss = landed.missing.length ? `missing ${landed.missing.join(", ")}` : null;
+  return { name, ok: false, detail: miss ?? detailOf(r.value) };
 };
 
 const runAiStack = async (mode: "setup" | "upgrade"): Promise<Result<Step[], unknown>> => {
