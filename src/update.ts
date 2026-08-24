@@ -1,5 +1,13 @@
 import { basename, dirname, join } from "node:path";
-import { chmodSync, mkdirSync, renameSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  renameSync,
+  symlinkSync,
+  unlinkSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { err, Result, ResultAsync } from "neverthrow";
 import pkg from "../package.json" with { type: "json" };
@@ -30,6 +38,25 @@ export const assetName = () => `toolbelt-${process.platform}-${process.arch}`;
 
 /** true when running as the compiled binary rather than `bun src/cli.tsx` */
 export const isBinary = () => !basename(process.execPath).startsWith("bun");
+
+/** ~/.local/bin/tb -> toolbelt so either name works after install or upgrade */
+export function ensureTbSymlink(execPath = process.execPath) {
+  const dir = dirname(execPath);
+  const toolbelt = join(dir, "toolbelt");
+  const tb = join(dir, "tb");
+  if (existsSync(tb)) {
+    const stat = lstatSync(tb);
+    if (stat.isSymbolicLink()) return;
+    unlinkSync(tb);
+  }
+  symlinkSync(basename(toolbelt), tb);
+}
+
+/** Always replace the canonical `toolbelt` binary, even when invoked as `tb`. */
+export function installTarget(execPath = process.execPath) {
+  const dir = dirname(execPath);
+  return basename(execPath) === "tb" ? join(dir, "toolbelt") : execPath;
+}
 
 export function isNewer(remote: string, local: string) {
   return Bun.semver.order(remote, local) > 0;
@@ -159,13 +186,14 @@ export async function selfUpdate(log = logger.info) {
   step("◆", ansi.accent, "installing…");
   const binary = Bun.concatArrayBuffers(chunks);
 
-  const target = process.execPath;
+  const target = installTarget();
   const tmp = join(dirname(target), `.${basename(target)}.new`);
   const swapped = await ResultAsync.fromPromise(
     (async () => {
       await Bun.write(tmp, binary);
       chmodSync(tmp, 0o755);
       renameSync(tmp, target);
+      ensureTbSymlink(target);
     })(),
     (e) => e,
   );

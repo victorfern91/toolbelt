@@ -5,6 +5,7 @@
   "description": "Small dev tools in one Bun binary, with a React (Ink) TUI",
   "license": "MIT",
   "bin": {
+    "tb": "./src/cli.tsx",
     "toolbelt": "./src/cli.tsx"
   },
   "type": "module",

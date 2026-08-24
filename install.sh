@@ -34,10 +34,11 @@ curl -fSL --progress-bar "$url" -o "$tmp" || {
 }
 chmod +x "$tmp"
 mv "$tmp" "$INSTALL_DIR/toolbelt"
+ln -sf toolbelt "$INSTALL_DIR/tb"
 trap - EXIT
 
 echo "✓ $("$INSTALL_DIR/toolbelt" --version 2>/dev/null || echo installed)"
 case ":$PATH:" in
-  *":$INSTALL_DIR:"*) echo "run: toolbelt" ;;
+  *":$INSTALL_DIR:"*) echo "run: toolbelt (or tb)" ;;
   *) echo "add to PATH:  export PATH=\"$INSTALL_DIR:\$PATH\"" ;;
 esac

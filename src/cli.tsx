@@ -55,11 +55,11 @@ const flagHelp = TOOLS.flatMap((t) =>
   ),
 );
 
-const HELP = `toolbelt ${VERSION} — small dev tools, one binary
+const HELP = `toolbelt (tb) ${VERSION} — small dev tools, one binary
 
 usage:
-  toolbelt                       interactive menu
-  toolbelt <tool> [flags]
+  toolbelt | tb                  interactive menu
+  toolbelt | tb <tool> [flags]
 
 tools:
 ${TOOLS.map((t) => {
