@@ -1,13 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Box, Text, useApp, useInput } from "ink";
-import {
-  complete,
-  fromPromise,
-  isComplete,
-  isErrored,
-  valueOrElse,
-  type AsyncResult,
-} from "@attio/fetchable";
+import { err, ok, ResultAsync, type Result } from "neverthrow";
 import {
   deleteBranch,
   listBranches,
@@ -16,7 +9,11 @@ import {
 } from "../../capabilities/git/index.ts";
 import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
-import { BranchCleanerProvider, useBranchCleanerState, type Result } from "./store.ts";
+import {
+  BranchCleanerProvider,
+  useBranchCleanerState,
+  type Result as DeleteResult,
+} from "./store.ts";
 
 const PAGE = 12;
 
@@ -37,7 +34,7 @@ function BranchCleanerView() {
   useEffect(() => {
     void (async () => {
       const res = await loadBranches();
-      if (isErrored(res)) return dispatch({ type: "failed", error: errMsg(res.error) });
+      if (res.isErr()) return dispatch({ type: "failed", error: errMsg(res.error) });
       dispatch({ type: "loaded", base: res.value.base, branches: res.value.branches });
     })();
   }, []);
@@ -52,17 +49,17 @@ function BranchCleanerView() {
 
   const runDelete = async () => {
     const names = branches.filter((b) => picked.has(b.name)).map((b) => b.name);
-    const out: Result[] = [];
+    const out: DeleteResult[] = [];
     for (const name of names) {
-      const r = await fromPromise(deleteBranch(name, force));
+      const r = await ResultAsync.fromPromise(deleteBranch(name, force), (e) => e);
       out.push({
         name,
-        ok: isComplete(r) && r.value.code === 0,
-        err: isComplete(r) ? (r.value.err.split("\n")[0] ?? "") : errMsg(r.error),
+        ok: r.isOk() && r.value.code === 0,
+        err: r.isOk() ? (r.value.err.split("\n")[0] ?? "") : errMsg(r.error),
       });
     }
     const refreshed = await listBranches(base);
-    dispatch({ type: "deleted", results: out, branches: valueOrElse(refreshed, branches) });
+    dispatch({ type: "deleted", results: out, branches: refreshed.unwrapOr(branches) });
   };
 
   useInput((input, key) => {
@@ -182,14 +179,14 @@ export function BranchCleaner() {
   );
 }
 
-export const printBranches = async (): AsyncResult<void, unknown> => {
+export const printBranches = async (): Promise<Result<void, unknown>> => {
   const res = await loadBranches();
-  if (isErrored(res)) return res;
+  if (res.isErr()) return err(res.error);
   for (const b of res.value.branches) {
     const state = b.current ? "current" : b.gone ? "gone" : b.merged ? "merged" : "active";
     console.log(`${state.padEnd(8)} ${b.name.padEnd(40)} ${b.date}`);
   }
-  return complete(undefined);
+  return ok(undefined);
 };
 
 registerTool({

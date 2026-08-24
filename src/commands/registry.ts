@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import type { AsyncResult } from "@attio/fetchable";
+import type { Result } from "neverthrow";
 
-export type ToolFlag = { desc: string; run: () => AsyncResult<void, unknown> };
+export type ToolFlag = { desc: string; run: () => Promise<Result<void, unknown>> };
 
 export type Tool = {
   name: string;

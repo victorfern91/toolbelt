@@ -1,14 +1,7 @@
 import { basename, dirname, join } from "node:path";
 import { chmodSync, mkdirSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
-import {
-  fromPromise,
-  fromThrowable,
-  isErrored,
-  mapError,
-  valueOrElse,
-  type AsyncResult,
-} from "@attio/fetchable";
+import { err, Result, ResultAsync } from "neverthrow";
 import pkg from "../package.json" with { type: "json" };
 import { FetchError, fetcher } from "./utils/fetcher.ts";
 import { logger } from "./utils/logger.ts";
@@ -37,31 +30,23 @@ export const assetName = () => `toolbelt-${process.platform}-${process.arch}`;
 /** true when running as the compiled binary rather than `bun src/cli.tsx` */
 export const isBinary = () => !basename(process.execPath).startsWith("bun");
 
-// ponytail: numeric-only compare, enough for vMAJOR.MINOR.PATCH tags.
-// If prereleases ever ship, swap in Bun.semver.
 export function isNewer(remote: string, local: string) {
-  const parts = (v: string) => v.replace(/^v/, "").split(".").map(Number);
-  const [r, l] = [parts(remote), parts(local)];
-  for (let i = 0; i < 3; i++) {
-    const d = (r[i] ?? 0) - (l[i] ?? 0);
-    if (d !== 0) return d > 0;
-  }
-  return false;
+  return Bun.semver.order(remote, local) > 0;
 }
 
-const fetchLatest = async (timeoutMs = 4000): AsyncResult<Release, unknown> => {
+const fetchLatest = async (timeoutMs = 4000): Promise<Result<Release, unknown>> => {
   const res = await fetcher.get(LATEST, {
     headers: { accept: "application/vnd.github+json" },
     timeoutMs,
   });
-  if (isErrored(res)) {
-    return mapError(res, (e) =>
-      e instanceof FetchError && e.status === 404
+  if (res.isErr()) {
+    return err(
+      res.error instanceof FetchError && res.error.status === 404
         ? new Error(`no releases published for ${REPO} yet`)
-        : e,
+        : res.error,
     );
   }
-  return fromPromise(res.value.json() as Promise<Release>);
+  return ResultAsync.fromPromise(res.value.json() as Promise<Release>, (e) => e);
 };
 
 /**
@@ -69,18 +54,24 @@ const fetchLatest = async (timeoutMs = 4000): AsyncResult<Release, unknown> => {
  * so at most one network call per day and never longer than the timeout.
  */
 export async function checkForUpdate(): Promise<string | null> {
-  let cached = valueOrElse(
-    await fromPromise(Bun.file(CACHE).json() as Promise<CacheEntry>),
-    undefined,
-  );
+  let cached = (
+    await ResultAsync.fromPromise(Bun.file(CACHE).json() as Promise<CacheEntry>, (e) => e)
+  ).unwrapOr(undefined);
 
   if (!cached || Date.now() - cached.checkedAt > DAY) {
     // offline, rate-limited, no release yet — never block the tool
     const latest = await fetchLatest(1500);
-    if (isErrored(latest)) return null;
+    if (latest.isErr()) return null;
     cached = { checkedAt: Date.now(), latest: latest.value.tag_name };
-    if (isErrored(fromThrowable(() => mkdirSync(dirname(CACHE), { recursive: true })))) return null;
-    if (isErrored(await fromPromise(Bun.write(CACHE, JSON.stringify(cached))))) return null;
+    if (
+      Result.fromThrowable(
+        () => mkdirSync(dirname(CACHE), { recursive: true }),
+        (e) => e,
+      )().isErr()
+    )
+      return null;
+    if ((await ResultAsync.fromPromise(Bun.write(CACHE, JSON.stringify(cached)), (e) => e)).isErr())
+      return null;
   }
   return isNewer(cached.latest, VERSION) ? cached.latest : null;
 }
@@ -123,7 +114,7 @@ export async function selfUpdate(log = logger.info) {
 
   step("◆", C.cyan, "checking for latest release…");
   const res = await fetchLatest();
-  if (isErrored(res)) {
+  if (res.isErr()) {
     step("✗", C.red, errMsg(res.error));
     return 1;
   }
@@ -148,10 +139,11 @@ export async function selfUpdate(log = logger.info) {
   );
 
   // Stream the download so we can show real progress.
-  const fetchRes = await fromPromise(
+  const fetchRes = await ResultAsync.fromPromise(
     fetch(asset.browser_download_url, { signal: AbortSignal.timeout(120_000) }),
+    (e) => e,
   );
-  if (isErrored(fetchRes) || !fetchRes.value.ok || !fetchRes.value.body) {
+  if (fetchRes.isErr() || !fetchRes.value.ok || !fetchRes.value.body) {
     step("✗", C.red, `download failed`);
     return 1;
   }
@@ -175,23 +167,19 @@ export async function selfUpdate(log = logger.info) {
   step("✓", C.green, `downloaded ${(downloaded / 1_048_576).toFixed(1)} MB`);
 
   step("◆", C.cyan, "installing…");
-  const binary = new Uint8Array(downloaded);
-  let offset = 0;
-  for (const chunk of chunks) {
-    binary.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  const binary = Bun.concatArrayBuffers(chunks);
 
   const target = process.execPath;
   const tmp = join(dirname(target), `.${basename(target)}.new`);
-  const swapped = await fromPromise(
+  const swapped = await ResultAsync.fromPromise(
     (async () => {
       await Bun.write(tmp, binary);
       chmodSync(tmp, 0o755);
       renameSync(tmp, target);
     })(),
+    (e) => e,
   );
-  if (isErrored(swapped)) {
+  if (swapped.isErr()) {
     step("✗", C.red, `could not replace ${target}: ${errMsg(swapped.error)}`);
     process.stdout.write(
       `${C.dim}  retry with write access, or reinstall:\n` +

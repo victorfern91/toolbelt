@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { useState } from "react";
 import { Box, render, Text, useApp, useInput } from "ink";
-import { isErrored } from "@attio/fetchable";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";
 import { checkForUpdate, selfUpdate, VERSION } from "./update.ts";
@@ -111,7 +110,7 @@ if (cmd === "-h" || cmd === "--help") {
     const action = flag ? tool.flags?.[flag] : undefined;
     if (action) {
       const r = await action.run();
-      process.exit(isErrored(r) ? fatal(r.error) : 0);
+      process.exit(r.isErr() ? fatal(r.error) : 0);
     } else {
       render(tool.ui());
     }

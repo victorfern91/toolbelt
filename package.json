@@ -18,9 +18,9 @@
     "build:all": "bun run scripts/build.ts --all"
   },
   "dependencies": {
-    "@attio/fetchable": "^0.0.1-experimental.9",
     "immer": "^11.1.17",
     "ink": "^7.1.1",
+    "neverthrow": "^8.2.0",
     "react": "^19.2.8"
   },
   "devDependencies": {
