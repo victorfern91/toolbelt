@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { err, ok, ResultAsync, type Result } from "neverthrow";
 import { applyAgentRules } from "./rules.ts";
+import { npxCandidates, npxWorks, pickNpx, skillAddArgs, skillInstalledAt } from "./skills-cli.ts";
 import { errMsg } from "../../utils/errors.ts";
 import { ansi } from "../../ui/theme.ts";
 
@@ -11,7 +12,13 @@ export type Step = { name: string; ok: boolean; detail: string };
 type Run = { code: number; out: string; err: string };
 
 const run = async (cmd: string, args: string[]): Promise<Run> => {
-  const p = Bun.spawn([cmd, ...args], { stdout: "pipe", stderr: "pipe", env: process.env });
+  const p = Bun.spawn([cmd, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+    stdin: "ignore",
+    cwd: homedir(),
+    env: { ...process.env, CI: "1" },
+  });
   const [out, stderr, code] = await Promise.all([
     new Response(p.stdout).text(),
     new Response(p.stderr).text(),
@@ -86,17 +93,20 @@ const ensureRtk = async (mode: "setup" | "upgrade"): Promise<Step> => {
   return { name: "rtk", ok: true, detail: `already installed (${existing})` };
 };
 
-const npx = Bun.which("npx");
-
-const addSkill = async (name: string, args: string[], verb: string): Promise<Step> => {
+const addSkill = async (
+  name: string,
+  source: string,
+  skills: readonly string[],
+  verb: string,
+): Promise<Step> => {
+  const npx = pickNpx(npxCandidates(), npxWorks);
   if (!npx) return { name, ok: false, detail: "npx not found — install Node.js" };
-  const r = await tryRun(npx, ["-y", "skills", "add", ...args]);
+  const r = await tryRun(npx, skillAddArgs(source, skills));
+  const where = skillInstalledAt(homedir(), name);
+  if (where) return { name, ok: true, detail: `${verb} (${where})` };
   if (r.isErr()) return { name, ok: false, detail: errMsg(r.error) };
-  if (r.value.code !== 0) return { name, ok: false, detail: detailOf(r.value) };
-  return { name, ok: true, detail: `${verb} globally (claude-code + cursor)` };
+  return { name, ok: false, detail: detailOf(r.value) };
 };
-
-const AGENTS = ["-g", "-y", "-a", "claude-code", "-a", "cursor"] as const;
 
 const runAiStack = async (mode: "setup" | "upgrade"): Promise<Result<Step[], unknown>> => {
   const verb = mode === "upgrade" ? "updated" : "installed";
@@ -107,14 +117,8 @@ const runAiStack = async (mode: "setup" | "upgrade"): Promise<Result<Step[], unk
       : { name: "rules", ok: true, detail: `${rules.value.claude} + ${rules.value.cursor}` },
   ];
   steps.push(await ensureRtk(mode));
-  steps.push(await addSkill("caveman", ["JuliusBrussee/caveman", ...AGENTS, "--all"], verb));
-  steps.push(
-    await addSkill(
-      "grill-me",
-      ["mattpocock/skills", "--skill", "grill-me", "--skill", "grilling", ...AGENTS],
-      verb,
-    ),
-  );
+  steps.push(await addSkill("caveman", "JuliusBrussee/caveman", ["caveman"], verb));
+  steps.push(await addSkill("grill-me", "mattpocock/skills", ["grill-me", "grilling"], verb));
   return ok(steps);
 };
 
