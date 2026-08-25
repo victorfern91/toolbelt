@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { err, ok, ResultAsync, type Result } from "neverthrow";
 import { applyAgentRules } from "./rules.ts";
+import { applyToolbeltSkill } from "./skill.ts";
 import {
   npxCandidates,
   npxEnv,
@@ -128,10 +129,14 @@ const addSkill = async (
 const runAiStack = async (mode: "setup" | "upgrade"): Promise<Result<Step[], unknown>> => {
   const verb = mode === "upgrade" ? "updated" : "installed";
   const rules = await applyAgentRules(homedir());
+  const skill = await applyToolbeltSkill(homedir());
   const steps: Step[] = [
     rules.isErr()
       ? { name: "rules", ok: false, detail: errMsg(rules.error) }
       : { name: "rules", ok: true, detail: `${rules.value.claude} + ${rules.value.cursor}` },
+    skill.isErr()
+      ? { name: "toolbelt", ok: false, detail: errMsg(skill.error) }
+      : { name: "toolbelt", ok: true, detail: `${verb} (${skill.value.paths[0]})` },
   ];
   steps.push(await ensureRtk(mode));
   steps.push(await addSkill("caveman", "JuliusBrussee/caveman", ["caveman"], verb));

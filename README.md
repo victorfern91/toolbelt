@@ -15,7 +15,9 @@ Self-contained binary — no Bun or Node needed. Lands in `~/.local/bin`
 toolbelt                        # interactive menu (alias: tb)
 toolbelt branch-cleaner
 toolbelt switch [name]
-toolbelt setup ai               # global AI tools + Claude/Cursor rules
+toolbelt setup ai               # global AI tools, skills, Claude/Cursor rules
+toolbelt install ai             # same as setup ai
+toolbelt update ai              # refresh that stack
 toolbelt upgrade                # update this binary
 toolbelt review --host          # local diff UI → agent prompt
 toolbelt --help

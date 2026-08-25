@@ -49,7 +49,8 @@ ${TOOLS.map((t) => {
 
 commands:
   upgrade                        download the latest release over this binary
-  upgrade ai                     update rtk, caveman, grill-me + refresh global rules
+  upgrade ai                     update rtk, caveman, grill-me, toolbelt skill + refresh global rules
+  install ai                     alias for setup ai
   --version                      print version
   --help                         this
 ${flagHelp.length ? `\nflags:\n${flagHelp.join("\n")}\n` : ""}`;
@@ -80,7 +81,7 @@ if (cmd === "-h" || cmd === "--help") {
   if (!cmd) {
     render(<Menu updateCheck={updateCheck} />);
   } else {
-    const tool = findTool(cmd);
+    const tool = findTool(cmd === "install" ? "setup" : cmd);
     if (!tool) {
       logger.error(`unknown tool: ${cmd}\nrun \`toolbelt --help\``);
       process.exit(1);

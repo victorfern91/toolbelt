@@ -9,7 +9,7 @@ export type AgentRule = {
   body: string;
 };
 
-/** Loaded from `rules.yaml` — `tb setup ai` / `tb upgrade ai` upsert into Claude + Cursor. */
+/** Loaded from `rules.yaml` — `tb setup ai` / `tb install ai` / `tb upgrade ai` upsert into Claude + Cursor. */
 export const AGENT_RULES: AgentRule[] = yaml;
 
 export const CLAUDE_START = "<!-- toolbelt-ai -->";

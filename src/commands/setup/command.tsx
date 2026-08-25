@@ -7,7 +7,7 @@ import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
 
 const RECIPES = [
-  { name: "ai", desc: "rtk, caveman, grill-me + global Claude/Cursor rules" },
+  { name: "ai", desc: "rtk, caveman, grill-me, toolbelt skill + global Claude/Cursor rules" },
 ] as const;
 
 function SetupView() {
@@ -79,5 +79,10 @@ registerTool({
   name: "setup",
   desc: "machine-wide installs (ai, …)",
   ui: () => <Setup />,
-  flags: { ai: { desc: "rtk, caveman, grill-me + global Claude/Cursor rules", run: printSetupAi } },
+  flags: {
+    ai: {
+      desc: "rtk, caveman, grill-me, toolbelt skill + global Claude/Cursor rules",
+      run: printSetupAi,
+    },
+  },
 });
