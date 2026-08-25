@@ -5,18 +5,15 @@ import { Diffs } from "./diffs.tsx";
 import {
   snapshotAtom,
   errorAtom,
-  draftAtom,
   notesAtom,
   busyAtom,
   doneAtom,
   countsAtom,
+  hideWhitespaceAtom,
   loadSnapshotAtom,
-  addCommentAtom,
+  setHideWhitespaceAtom,
   submitAtom,
 } from "./store.ts";
-
-const rangeLabel = (start: number, end: number) =>
-  start === end ? `L${start}` : `L${start}–${end}`;
 
 export function App() {
   const snapshot = useAtomValue(snapshotAtom);
@@ -24,10 +21,10 @@ export function App() {
   const counts = useAtomValue(countsAtom);
   const busy = useAtomValue(busyAtom);
   const done = useAtomValue(doneAtom);
-  const [draft, setDraft] = useAtom(draftAtom);
+  const hideWhitespace = useAtomValue(hideWhitespaceAtom);
+  const setHideWhitespace = useSetAtom(setHideWhitespaceAtom);
   const [notes, setNotes] = useAtom(notesAtom);
   const load = useSetAtom(loadSnapshotAtom);
-  const addComment = useSetAtom(addCommentAtom);
   const submit = useSetAtom(submitAtom);
 
   useEffect(() => {
@@ -43,9 +40,17 @@ export function App() {
       <header className="top">
         <span className="badge">review</span>
         <span className="meta">
-          {snapshot.branch} vs {snapshot.base} · {counts.n} files · {counts.approved} approved ·{" "}
-          {counts.unapproved} unapproved · {counts.comments} comments
+          {snapshot.branch} vs {snapshot.base} · {counts.n} files · {counts.approved} accepted ·{" "}
+          {counts.unapproved} rejected · {counts.comments} comments
         </span>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={hideWhitespace}
+            onChange={(e) => setHideWhitespace(e.target.checked)}
+          />
+          Hide whitespace
+        </label>
         <button
           className="primary"
           type="button"
@@ -63,41 +68,6 @@ export function App() {
           <Diffs />
         </section>
       </div>
-      {draft ? (
-        <form
-          className="composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-            addComment();
-          }}
-        >
-          <div className="row">
-            Comment on {draft.path} {rangeLabel(draft.range.start, draft.range.end)} (
-            {draft.range.side ?? "additions"})
-          </div>
-          <textarea
-            autoFocus
-            placeholder="What should the agent change here?"
-            value={draft.body}
-            onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                addComment();
-              }
-              if (e.key === "Escape") setDraft(null);
-            }}
-          />
-          <div className="row">
-            <button className="primary" type="submit" disabled={!draft.body.trim()}>
-              Add comment
-            </button>
-            <button type="button" onClick={() => setDraft(null)}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
       {done ? (
         <div className="done">
           Feedback sent. The agent prompt is on stdout (and below). You can close this tab.

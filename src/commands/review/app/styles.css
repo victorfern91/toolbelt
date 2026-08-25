@@ -103,6 +103,17 @@ button.active.danger {
   flex: 1;
 }
 
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  user-select: none;
+}
+
+.toggle input {
+  accent-color: var(--ok);
+}
+
 .body {
   min-height: 0;
   display: grid;
@@ -136,6 +147,22 @@ button.active.danger {
 .file-actions {
   display: flex;
   gap: 0.35rem;
+  align-items: center;
+}
+
+.note-draft {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.note-draft textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
 }
 
 .empty,

@@ -8,12 +8,32 @@ import type {
   Verdict,
 } from "../../../capabilities/review/types.ts";
 
-export type CommentMeta = { id: string; body: string; endLine: number };
+export type CommentMeta = { id: string; body: string; endLine: number; draft?: boolean };
 
-export type Draft = {
+const parseSnapshotDiffs = (data: ReviewSnapshot, hideWhitespace: boolean) => {
+  const diffs: Record<string, FileDiffMetadata> = {};
+  const opts = hideWhitespace ? { ignoreWhitespace: true } : undefined;
+  const tag = hideWhitespace ? "hide-ws" : "show-ws";
+  for (const file of data.files) {
+    if (file.skipped) continue;
+    const name = file.path;
+    const oldFile =
+      file.oldContents == null
+        ? null
+        : { name, contents: file.oldContents, cacheKey: `${name}:old:${tag}` };
+    const newFile =
+      file.newContents == null
+        ? null
+        : { name, contents: file.newContents, cacheKey: `${name}:new:${tag}` };
+    if (oldFile == null && newFile == null) continue;
+    diffs[name] = parseDiffFromFile(oldFile, newFile, opts);
+  }
+  return diffs;
+};
+
+export type DraftRange = {
   path: string;
   range: SelectedLineRange;
-  body: string;
 };
 
 const newId = () => crypto.randomUUID();
@@ -26,7 +46,9 @@ export const verdictsAtom = atom<Record<string, Verdict>>({});
 export const commentsAtom = atom<ReviewComment[]>([]);
 export const editsAtom = atom<Record<string, string>>({});
 export const notesAtom = atom("");
-export const draftAtom = atom<Draft | null>(null);
+export const hideWhitespaceAtom = atom(true);
+export const draftRangeAtom = atom<DraftRange | null>(null);
+export const draftBodyAtom = atom("");
 export const editingAtom = atom<Record<string, boolean>>({});
 export const versionsAtom = atom<Record<string, number>>({});
 export const busyAtom = atom(false);
@@ -56,6 +78,7 @@ export const itemsAtom = atom((get) => {
   const comments = get(commentsAtom);
   const editing = get(editingAtom);
   const versions = get(versionsAtom);
+  const draftRange = get(draftRangeAtom);
   if (!snapshot) return [] as CodeViewItem<CommentMeta>[];
   return snapshot.files.flatMap((file): CodeViewItem<CommentMeta>[] => {
     if (file.skipped) {
@@ -79,13 +102,31 @@ export const itemsAtom = atom((get) => {
         id: file.path,
         type: "diff",
         fileDiff,
-        annotations: comments
-          .filter((c) => c.path === file.path)
-          .map((c) => ({
-            side: c.side,
-            lineNumber: c.startLine,
-            metadata: { id: c.id, body: c.body, endLine: c.endLine },
-          })),
+        annotations: [
+          ...comments
+            .filter((c) => c.path === file.path)
+            .map((c) => ({
+              side: c.side,
+              lineNumber: c.startLine,
+              metadata: { id: c.id, body: c.body, endLine: c.endLine },
+            })),
+          ...(draftRange && draftRange.path === file.path
+            ? [
+                {
+                  side: (draftRange.range.side === "deletions"
+                    ? "deletions"
+                    : "additions") as const,
+                  lineNumber: Math.min(draftRange.range.start, draftRange.range.end),
+                  metadata: {
+                    id: "__draft__",
+                    body: "",
+                    endLine: Math.max(draftRange.range.start, draftRange.range.end),
+                    draft: true,
+                  },
+                },
+              ]
+            : []),
+        ],
         edit: editing[file.path] ?? false,
         version: versions[file.path] ?? 0,
       },
@@ -93,46 +134,55 @@ export const itemsAtom = atom((get) => {
   });
 });
 
-export const loadSnapshotAtom = atom(null, async (_get, set) => {
+export const loadSnapshotAtom = atom(null, async (get, set) => {
   const res = await fetch("/api/snapshot");
   if (!res.ok) {
     set(errorAtom, `failed to load snapshot (${res.status})`);
     return;
   }
   const data = (await res.json()) as ReviewSnapshot;
-  const diffs: Record<string, FileDiffMetadata> = {};
-  for (const file of data.files) {
-    if (file.skipped) continue;
-    const name = file.path;
-    const oldFile =
-      file.oldContents == null
-        ? null
-        : { name, contents: file.oldContents, cacheKey: `${name}:old` };
-    const newFile =
-      file.newContents == null
-        ? null
-        : { name, contents: file.newContents, cacheKey: `${name}:new` };
-    if (oldFile == null && newFile == null) continue;
-    diffs[name] = parseDiffFromFile(oldFile, newFile);
-  }
   set(snapshotAtom, data);
-  set(fileDiffsAtom, diffs);
+  set(fileDiffsAtom, parseSnapshotDiffs(data, get(hideWhitespaceAtom)));
   set(activePathAtom, data.files[0]?.path ?? null);
+});
+
+export const setHideWhitespaceAtom = atom(null, (get, set, hide: boolean) => {
+  if (get(hideWhitespaceAtom) === hide) return;
+  set(hideWhitespaceAtom, hide);
+  const snapshot = get(snapshotAtom);
+  if (!snapshot) return;
+  set(fileDiffsAtom, parseSnapshotDiffs(snapshot, hide));
+  const versions = { ...get(versionsAtom) };
+  for (const file of snapshot.files) versions[file.path] = (versions[file.path] ?? 0) + 1;
+  set(versionsAtom, versions);
 });
 
 export const startDraftAtom = atom(
   null,
   (get, set, { path, range }: { path: string; range: SelectedLineRange }) => {
-    set(draftAtom, { path, range, body: "" });
-    if (!get(editingAtom)[path]) return;
-    set(editingAtom, { ...get(editingAtom), [path]: false });
+    const prev = get(draftRangeAtom);
+    set(draftRangeAtom, { path, range });
+    set(draftBodyAtom, "");
+    if (get(editingAtom)[path]) {
+      set(editingAtom, { ...get(editingAtom), [path]: false });
+    }
+    if (prev && prev.path !== path) bump(get, set, prev.path);
     bump(get, set, path);
   },
 );
 
+export const cancelDraftAtom = atom(null, (get, set) => {
+  const draft = get(draftRangeAtom);
+  if (!draft) return;
+  set(draftRangeAtom, null);
+  set(draftBodyAtom, "");
+  bump(get, set, draft.path);
+});
+
 export const addCommentAtom = atom(null, (get, set) => {
-  const draft = get(draftAtom);
-  if (!draft || !draft.body.trim()) return;
+  const draft = get(draftRangeAtom);
+  const body = get(draftBodyAtom).trim();
+  if (!draft || !body) return;
   const start = Math.min(draft.range.start, draft.range.end);
   const end = Math.max(draft.range.start, draft.range.end);
   set(commentsAtom, [
@@ -143,11 +193,12 @@ export const addCommentAtom = atom(null, (get, set) => {
       side: draft.range.side === "deletions" ? "deletions" : "additions",
       startLine: start,
       endLine: end,
-      body: draft.body.trim(),
+      body,
     },
   ]);
+  set(draftRangeAtom, null);
+  set(draftBodyAtom, "");
   bump(get, set, draft.path);
-  set(draftAtom, null);
 });
 
 export const removeCommentAtom = atom(null, (get, set, id: string) => {

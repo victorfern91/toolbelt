@@ -1,15 +1,20 @@
 import { useCallback, useMemo } from "react";
 import type { CodeViewItem, CodeViewReactOptions, DiffLineAnnotation } from "@pierre/diffs/react";
 import { CodeView } from "@pierre/diffs/react";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   itemsAtom,
   viewerAtom,
   startDraftAtom,
   removeCommentAtom,
+  cancelDraftAtom,
+  addCommentAtom,
   toggleVerdictAtom,
   toggleEditingAtom,
   recordEditAtom,
+  hideWhitespaceAtom,
+  draftRangeAtom,
+  draftBodyAtom,
   verdictsAtom,
   editingAtom,
   type CommentMeta,
@@ -27,14 +32,14 @@ function FileActions({ path, canEdit }: { path: string; canEdit: boolean }) {
         className={verdict === "approved" ? "ok active" : "ok"}
         onClick={() => toggleVerdict({ path, verdict: "approved" })}
       >
-        Approve
+        Accept
       </button>
       <button
         type="button"
         className={verdict === "unapproved" ? "danger active" : "danger"}
         onClick={() => toggleVerdict({ path, verdict: "unapproved" })}
       >
-        Unapprove
+        {verdict === "unapproved" ? "Rejected" : "Reject Changes"}
       </button>
       {canEdit ? (
         <button
@@ -59,9 +64,7 @@ function Note({ annotation }: { annotation: DiffLineAnnotation<CommentMeta> }) {
   return (
     <div className="note">
       <div className="note-head">
-        <span>
-          {annotation.side} {range}
-        </span>
+        <span>Comment {range}</span>
         <button type="button" onClick={() => remove(meta.id)} aria-label="Remove comment">
           ×
         </button>
@@ -71,8 +74,52 @@ function Note({ annotation }: { annotation: DiffLineAnnotation<CommentMeta> }) {
   );
 }
 
+function DraftNote() {
+  const range = useAtomValue(draftRangeAtom);
+  const [body, setBody] = useAtom(draftBodyAtom);
+  const addComment = useSetAtom(addCommentAtom);
+  const cancel = useSetAtom(cancelDraftAtom);
+  if (!range) return null;
+  const start = Math.min(range.range.start, range.range.end);
+  const end = Math.max(range.range.start, range.range.end);
+  const label = start === end ? `L${start}` : `L${start}–${end}`;
+  return (
+    <form
+      className="note note-draft"
+      onSubmit={(e) => {
+        e.preventDefault();
+        addComment();
+      }}
+    >
+      <div className="note-head">Comment {label}</div>
+      <textarea
+        autoFocus
+        placeholder="Add a comment on this change…"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            addComment();
+          }
+          if (e.key === "Escape") cancel();
+        }}
+      />
+      <div className="row">
+        <button className="primary" type="submit" disabled={!body.trim()}>
+          Add comment
+        </button>
+        <button type="button" onClick={() => cancel()}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function Diffs() {
   const items = useAtomValue(itemsAtom);
+  const hideWhitespace = useAtomValue(hideWhitespaceAtom);
   const setViewer = useSetAtom(viewerAtom);
   const startDraft = useSetAtom(startDraftAtom);
   const recordEdit = useSetAtom(recordEditAtom);
@@ -81,7 +128,8 @@ export function Diffs() {
     () => ({
       theme: "pierre-dark",
       themeType: "dark",
-      diffStyle: "unified",
+      diffStyle: "split",
+      diffIndicators: "classic",
       overflow: "wrap",
       enableLineSelection: true,
       enableGutterUtility: true,
@@ -89,6 +137,7 @@ export function Diffs() {
       preferredHighlighter: "shiki-js",
       lineHoverHighlight: "line",
       stickyHeaders: true,
+      parseDiffOptions: hideWhitespace ? { ignoreWhitespace: true } : undefined,
       layout: { paddingTop: 12, paddingBottom: 16, gap: 16 },
       onGutterUtilityClick: (range, context) => {
         startDraft({ path: context.item.id, range });
@@ -97,7 +146,7 @@ export function Diffs() {
         if (range) startDraft({ path: context.item.id, range });
       },
     }),
-    [startDraft],
+    [hideWhitespace, startDraft],
   );
 
   const editorOptions = useMemo(() => ({ persistState: true }), []);
@@ -110,8 +159,11 @@ export function Diffs() {
   );
 
   const renderAnnotation = useCallback(
-    (annotation: DiffLineAnnotation<CommentMeta> | { lineNumber: number }) =>
-      "side" in annotation ? <Note annotation={annotation} /> : null,
+    (annotation: DiffLineAnnotation<CommentMeta> | { lineNumber: number }) => {
+      if (!("side" in annotation)) return null;
+      if (annotation.metadata.draft) return <DraftNote />;
+      return <Note annotation={annotation} />;
+    },
     [],
   );
 
