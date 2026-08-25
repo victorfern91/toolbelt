@@ -5,4 +5,15 @@
 - id: use-rtk
   title: RTK
   body: >
-    Prefix token-heavy shell commands with `rtk` so output costs fewer prompt tokens (git, ls, cat, grep/rg, test runners, docker, kubectl).  Example: `rtk git status`, not `git status`. Use `rtk proxy <cmd>` only when unfiltered output is required.
+    Prefix token-heavy shell commands with `rtk` so output costs fewer prompt tokens (git, ls, cat, grep/rg, test runners, docker, kubectl).
+    Example: `rtk git status`, not `git status`.
+    Use `rtk proxy <cmd>` only when unfiltered output is required.
+
+- id: review-with-toolbelt
+  title: Review
+  body: >
+    When I ask to review changes with toolbelt, run `tb review --host` from the repo root.
+    It opens a local diff UI, blocks until I submit, then prints a prompt between
+    `<<<TOOLBELT_REVIEW` and `TOOLBELT_REVIEW>>>`. Apply that prompt as the next iteration:
+    keep approved files, address unapproved files and line comments (with the cited locations),
+    and apply any requested edits. Do not skip locations.

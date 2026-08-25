@@ -1,0 +1,204 @@
+:root {
+  color-scheme: dark;
+  --bg: #2e3440;
+  --bg-2: #3b4252;
+  --bg-3: #434c5e;
+  --text: #eceff4;
+  --muted: #d8dee9;
+  --faint: #4c566a;
+  --accent: #88c0d0;
+  --ok: #a3be8c;
+  --warn: #ebcb8b;
+  --danger: #bf616a;
+  --chrome: #b48ead;
+  --border: #4c566a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font:
+    13px/1.45 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button.primary {
+  background: var(--chrome);
+  color: var(--bg);
+  border-color: var(--chrome);
+  font-weight: 650;
+}
+
+button.ok {
+  color: var(--ok);
+}
+button.danger {
+  color: var(--danger);
+}
+button.active.ok {
+  background: color-mix(in oklab, var(--ok) 22%, var(--bg-2));
+  border-color: var(--ok);
+}
+button.active.danger {
+  background: color-mix(in oklab, var(--danger) 22%, var(--bg-2));
+  border-color: var(--danger);
+}
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.badge {
+  background: var(--chrome);
+  color: var(--bg);
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.top .meta {
+  color: var(--muted);
+  flex: 1;
+}
+
+.body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.tree {
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.main {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.diffs {
+  position: absolute;
+  inset: 0;
+}
+
+.file-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.empty,
+.msg {
+  padding: 1.5rem;
+  color: var(--muted);
+}
+
+.composer,
+.notes,
+.done {
+  border-top: 1px solid var(--border);
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-2);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.composer textarea,
+.notes textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.note {
+  margin: 0.35rem 0.5rem 0.7rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--chrome);
+  border-radius: 6px;
+}
+
+.note-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.note p {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+}
+
+.done pre {
+  white-space: pre-wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem;
+  max-height: 10rem;
+  overflow: auto;
+}

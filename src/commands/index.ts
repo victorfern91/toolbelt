@@ -3,3 +3,4 @@
 import "./branch-cleaner/command.tsx";
 import "./switch/command.tsx";
 import "./setup/command.tsx";
+import "./review/command.tsx";
