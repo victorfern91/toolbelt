@@ -110,10 +110,20 @@ function progress(downloaded: number, total: number | null) {
   );
 }
 
+/** Binary self-update, then always refresh the AI stack. Binary failure wins the exit code. */
+export const runFullUpdate = async <T>(
+  updateBinary: () => Promise<number>,
+  refreshAi: () => Promise<T>,
+): Promise<{ bin: number; ai: T }> => {
+  const bin = await updateBinary();
+  const ai = await refreshAi();
+  return { bin, ai };
+};
+
 export async function selfUpdate(log = logger.info) {
   if (!isBinary()) {
-    log("running from source — use `git pull && bun install` instead");
-    return 1;
+    log("running from source — skipping binary update (`git pull && bun install`)");
+    return 0;
   }
 
   step("◆", ansi.accent, "checking for latest release…");

@@ -25,4 +25,4 @@ When the user asks to review changes with toolbelt:
 - `tb branch-cleaner` — delete merged/gone local branches
 - `tb setup ai` / `tb install ai` — install the AI stack (rtk, skills, global rules)
 - `tb upgrade ai` / `tb update ai` — refresh that stack
-- `tb upgrade` / `tb update` — replace this binary
+- `tb upgrade` / `tb update` — replace this binary, then refresh the AI stack

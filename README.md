@@ -17,8 +17,9 @@ toolbelt branch-cleaner
 toolbelt switch [name]
 toolbelt setup ai               # global AI tools, skills, Claude/Cursor rules
 toolbelt install ai             # same as setup ai
-toolbelt update ai              # refresh that stack
-toolbelt upgrade                # update this binary
+toolbelt update                 # latest binary, then refresh the AI stack
+toolbelt update ai              # refresh AI stack only
+toolbelt upgrade                # same as update
 toolbelt review --host          # local diff UI → agent prompt
 toolbelt --help
 ```

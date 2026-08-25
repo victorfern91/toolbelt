@@ -2,7 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import { chmodSync, lstatSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkForUpdate, ensureTbSymlink, installTarget } from "./update.ts";
+import { err, ok } from "neverthrow";
+import { checkForUpdate, ensureTbSymlink, installTarget, runFullUpdate } from "./update.ts";
 
 const dir = () => mkdtempSync(join(tmpdir(), "tb-link-"));
 
@@ -86,4 +87,44 @@ test("checkForUpdate returns null when the request fails", async () => {
     throw new Error("offline");
   };
   expect(await checkForUpdate("0.1.0")).toBeNull();
+});
+
+test("runFullUpdate always refreshes the AI stack after the binary step", async () => {
+  const order: string[] = [];
+  const { bin, ai } = await runFullUpdate(
+    async () => {
+      order.push("bin");
+      return 0;
+    },
+    async () => {
+      order.push("ai");
+      return ok(undefined);
+    },
+  );
+  expect(order).toEqual(["bin", "ai"]);
+  expect(bin).toBe(0);
+  expect(ai.isOk()).toBe(true);
+});
+
+test("runFullUpdate still refreshes AI when the binary update fails", async () => {
+  let aiRan = false;
+  const { bin, ai } = await runFullUpdate(
+    async () => 1,
+    async () => {
+      aiRan = true;
+      return ok(undefined);
+    },
+  );
+  expect(aiRan).toBe(true);
+  expect(bin).toBe(1);
+  expect(ai.isOk()).toBe(true);
+});
+
+test("runFullUpdate surfaces an AI stack failure", async () => {
+  const { bin, ai } = await runFullUpdate(
+    async () => 0,
+    async () => err(new Error("grill-me missing")),
+  );
+  expect(bin).toBe(0);
+  expect(ai.isErr()).toBe(true);
 });

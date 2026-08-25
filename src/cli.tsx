@@ -9,6 +9,7 @@ import {
   installTarget,
   isBinary,
   maybePrintUpdateBanner,
+  runFullUpdate,
   selfUpdate,
   VERSION,
 } from "./update.ts";
@@ -48,7 +49,7 @@ ${TOOLS.map((t) => {
 }).join("\n")}
 
 commands:
-  upgrade                        download the latest release over this binary
+  upgrade                        download the latest release, then refresh the AI stack
   upgrade ai                     update rtk, caveman, grill-me, toolbelt skill + refresh global rules
   install ai                     alias for setup ai
   --version                      print version
@@ -73,7 +74,9 @@ if (cmd === "-h" || cmd === "--help") {
     logger.error(`unknown upgrade target: ${rest[0]}\nrun \`toolbelt --help\``);
     process.exit(1);
   }
-  process.exit(await selfUpdate());
+  const { bin, ai } = await runFullUpdate(selfUpdate, printUpgradeAi);
+  if (bin !== 0) process.exit(bin);
+  process.exit(ai.isErr() ? fatal(ai.error) : 0);
 } else {
   // Kick off in parallel with the command / TUI — never block startup on GitHub.
   const updateCheck = checkForUpdate();
