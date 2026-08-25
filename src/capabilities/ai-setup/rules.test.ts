@@ -18,6 +18,7 @@ test("rules.yaml is loaded by Bun", async () => {
     await Bun.file(join(import.meta.dir, "rules.yaml")).text(),
   ) as AgentRule[];
   expect(parsed[0]?.id).toBe("concise-reporting");
+  expect(parsed.map((r) => r.id)).toContain("git-identity");
   expect(AGENT_RULES).toEqual(parsed);
 });
 
@@ -47,8 +48,10 @@ test("applyAgentRules writes Claude + Cursor files", async () => {
     const cursor = await Bun.file(cursorRulePath(home)).text();
     expect(claude).toContain(AGENT_RULES[0]!.body);
     expect(claude).toContain("rtk git status");
+    expect(claude).toContain("gitconfig");
     expect(cursor).toContain("alwaysApply: true");
     expect(cursor).toContain(AGENT_RULES[0]!.body);
+    expect(cursor).toContain("## Git identity");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

@@ -17,3 +17,10 @@
     `<<<TOOLBELT_REVIEW` and `TOOLBELT_REVIEW>>>`. Apply that prompt as the next iteration:
     keep approved files, address unapproved files and line comments (with the cited locations),
     and apply any requested edits. Do not skip locations.
+
+- id: git-identity
+  title: Git identity
+  body: >
+    Attribute every commit to the identity in gitconfig (`user.name` / `user.email`).
+    Run `git commit` with no `--author` and no GIT_AUTHOR_* or GIT_COMMITTER_* overrides.
+    Leave Claude, Cursor, and other agents off author, committer, and Co-Authored-By.
