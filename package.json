@@ -1,6 +1,6 @@
 {
   "name": "toolbelt",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": false,
   "description": "Small dev tools in one Bun binary, with a React (Ink) TUI",
   "license": "MIT",
