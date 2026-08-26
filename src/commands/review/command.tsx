@@ -7,11 +7,13 @@ import { registerTool } from "../registry.ts";
 import { errMsg } from "../../utils/errors.ts";
 import { runReviewHost, startReviewHost } from "./host.ts";
 
+type Outcome = { kind: "prompt"; text: string } | { kind: "noop" };
+
 function ReviewView() {
   const { back, quit, nested } = useNav();
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
-  const [prompt, setPrompt] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -30,7 +32,11 @@ function ReviewView() {
       setUrl(r.value.url);
       const next = await r.value.done;
       if (gone) return;
-      setPrompt(next);
+      if (next == null) setOutcome({ kind: "noop" });
+      else {
+        console.log(next);
+        setOutcome({ kind: "prompt", text: next });
+      }
       r.value.stop();
     })();
     return () => {
@@ -44,11 +50,21 @@ function ReviewView() {
       quit();
       return;
     }
-    if (prompt || error) return back();
+    if (outcome || error) return back();
   });
 
   if (error) return <Fail>{error}</Fail>;
-  if (prompt) {
+  if (outcome?.kind === "noop") {
+    return (
+      <Done>
+        <Text>
+          <Text color={color.ok}>✓ </Text>
+          no feedback — nothing to do
+        </Text>
+      </Done>
+    );
+  }
+  if (outcome?.kind === "prompt") {
     return (
       <Done>
         <Text>
@@ -69,7 +85,7 @@ function ReviewView() {
       <Text>
         UI <Text color={color.accent}>{url}</Text>
       </Text>
-      <Text dimColor>waiting for submit…</Text>
+      <Text dimColor>waiting for submit (close tab = no action)…</Text>
     </Screen>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { ChangesTree } from "./changes-tree.tsx";
 import { Diffs } from "./diffs.tsx";
@@ -26,10 +26,30 @@ export function App() {
   const [notes, setNotes] = useAtom(notesAtom);
   const load = useSetAtom(loadSnapshotAtom);
   const submit = useSetAtom(submitAtom);
+  const settledRef = useRef({ done: false, busy: false });
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    settledRef.current.done = done != null;
+  }, [done]);
+
+  useEffect(() => {
+    settledRef.current.busy = busy;
+  }, [busy]);
+
+  // Closing the tab with no submit → abandon (no action for the agent).
+  useEffect(() => {
+    const abandon = () => {
+      if (settledRef.current.done || settledRef.current.busy) return;
+      settledRef.current.done = true;
+      navigator.sendBeacon("/api/abandon");
+    };
+    window.addEventListener("pagehide", abandon);
+    return () => window.removeEventListener("pagehide", abandon);
+  }, []);
 
   if (error) return <div className="msg">{error}</div>;
   if (!snapshot) return <div className="msg">Loading diff…</div>;
@@ -68,10 +88,12 @@ export function App() {
           <Diffs />
         </section>
       </div>
-      {done ? (
+      {done != null ? (
         <div className="done">
-          Feedback sent. The agent prompt is on stdout (and below). You can close this tab.
-          <pre>{done}</pre>
+          {done
+            ? "Feedback sent. The agent prompt is on stdout (and below). You can close this tab."
+            : "No annotations — nothing for the agent to do. You can close this tab."}
+          {done ? <pre>{done}</pre> : null}
         </div>
       ) : (
         <div className="notes">

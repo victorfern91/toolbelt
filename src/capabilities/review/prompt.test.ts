@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { parseFeedback, renderReviewPrompt, wrapReviewPrompt } from "./prompt.ts";
+import {
+  hasActionableFeedback,
+  parseFeedback,
+  renderReviewPrompt,
+  wrapReviewPrompt,
+} from "./prompt.ts";
 import type { ReviewSnapshot } from "./types.ts";
 
 const snapshot: ReviewSnapshot = {
@@ -18,6 +23,12 @@ const snapshot: ReviewSnapshot = {
       status: "modified",
       oldContents: "export const leak = true;\n",
       newContents: "export const leak = false;\nconst token = 'secret';\n",
+    },
+    {
+      path: "src/other.ts",
+      status: "added",
+      oldContents: null,
+      newContents: "export {};\n",
     },
   ],
 };
@@ -50,12 +61,35 @@ test("parseFeedback drops empty comments", () => {
   expect(r.value.comments[0]?.body).toBe("don't hardcode secrets");
 });
 
-test("renderReviewPrompt includes unapproved locations and excerpts", () => {
+test("hasActionableFeedback is false when everything is pending", () => {
+  expect(
+    hasActionableFeedback({
+      notes: "",
+      files: [
+        { path: "src/ok.ts", verdict: "pending" },
+        { path: "src/bad.ts", verdict: "pending" },
+      ],
+      comments: [],
+      edits: [],
+    }),
+  ).toBe(false);
+  expect(
+    hasActionableFeedback({
+      notes: "",
+      files: [{ path: "src/bad.ts", verdict: "unapproved" }],
+      comments: [],
+      edits: [],
+    }),
+  ).toBe(true);
+});
+
+test("renderReviewPrompt is dense RTK-style", () => {
   const feedback = parseFeedback({
     notes: "token handling is wrong",
     files: [
       { path: "src/ok.ts", verdict: "approved" },
       { path: "src/bad.ts", verdict: "unapproved" },
+      { path: "src/other.ts", verdict: "pending" },
     ],
     comments: [
       {
@@ -72,12 +106,36 @@ test("renderReviewPrompt includes unapproved locations and excerpts", () => {
   expect(feedback.isOk()).toBe(true);
   if (feedback.isErr()) return;
   const prompt = renderReviewPrompt(snapshot, feedback.value);
-  expect(prompt).toContain("Unapproved");
-  expect(prompt).toContain("`src/bad.ts`");
-  expect(prompt).toContain("additions L2");
-  expect(prompt).toContain("don't hardcode secrets");
-  expect(prompt).toContain("const token = 'secret';");
-  expect(prompt).toContain("`src/ok.ts` (modified)");
-  expect(prompt).toContain("token handling is wrong");
+  expect(prompt).toBe(
+    [
+      "ok: src/ok.ts",
+      "fix: src/bad.ts",
+      "  +L2: don't hardcode secrets",
+      "  | const token = 'secret';",
+      "notes: token handling is wrong",
+      "",
+    ].join("\n"),
+  );
+  expect(prompt).not.toContain("src/other.ts");
+  expect(prompt).not.toContain("Toolbelt review");
   expect(wrapReviewPrompt(prompt)).toContain("<<<TOOLBELT_REVIEW");
+});
+
+test("renderReviewPrompt omits pending files on partial annotation", () => {
+  const feedback = parseFeedback({
+    notes: "",
+    files: [
+      { path: "src/ok.ts", verdict: "pending" },
+      { path: "src/bad.ts", verdict: "unapproved" },
+      { path: "src/other.ts", verdict: "pending" },
+    ],
+    comments: [],
+    edits: [],
+  });
+  expect(feedback.isOk()).toBe(true);
+  if (feedback.isErr()) return;
+  const prompt = renderReviewPrompt(snapshot, feedback.value);
+  expect(prompt).toBe("fix: src/bad.ts\n");
+  expect(prompt).not.toContain("src/ok.ts");
+  expect(prompt).not.toContain("/tmp/demo");
 });

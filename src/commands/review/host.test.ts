@@ -13,6 +13,12 @@ const snapshot: ReviewSnapshot = {
       oldContents: "export const n = 1;\n",
       newContents: "export const n = 2;\n",
     },
+    {
+      path: "src/b.ts",
+      status: "added",
+      oldContents: null,
+      newContents: "export {};\n",
+    },
   ],
 };
 
@@ -39,7 +45,10 @@ test("host serves the snapshot and prints a prompt on submit", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         notes: "look at a.ts",
-        files: [{ path: "src/a.ts", verdict: "unapproved" }],
+        files: [
+          { path: "src/a.ts", verdict: "unapproved" },
+          { path: "src/b.ts", verdict: "pending" },
+        ],
         comments: [
           {
             id: "c1",
@@ -57,7 +66,51 @@ test("host serves the snapshot and prints a prompt on submit", async () => {
     const prompt = await done;
     expect(prompt).toContain("<<<TOOLBELT_REVIEW");
     expect(prompt).toContain("keep n = 1");
-    expect(prompt).toContain("`src/a.ts`");
+    expect(prompt).toContain("fix: src/a.ts");
+    expect(prompt).not.toContain("src/b.ts");
+    expect(prompt).not.toContain("Toolbelt review");
+  } finally {
+    stop();
+  }
+});
+
+test("empty submit is no action", async () => {
+  const r = await startReviewHost({ snapshot, open: false, port: 0 });
+  expect(r.isOk()).toBe(true);
+  if (r.isErr()) return;
+  const { url, stop, done } = r.value;
+  try {
+    const res = await fetch(`${url}/api/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        notes: "",
+        files: [
+          { path: "src/a.ts", verdict: "pending" },
+          { path: "src/b.ts", verdict: "pending" },
+        ],
+        comments: [],
+        edits: [],
+      }),
+    });
+    expect(res.ok).toBe(true);
+    const body = (await res.json()) as { prompt: string | null };
+    expect(body.prompt).toBeNull();
+    expect(await done).toBeNull();
+  } finally {
+    stop();
+  }
+});
+
+test("abandon is no action", async () => {
+  const r = await startReviewHost({ snapshot, open: false, port: 0 });
+  expect(r.isOk()).toBe(true);
+  if (r.isErr()) return;
+  const { url, stop, done } = r.value;
+  try {
+    const res = await fetch(`${url}/api/abandon`, { method: "POST" });
+    expect(res.status).toBe(204);
+    expect(await done).toBeNull();
   } finally {
     stop();
   }

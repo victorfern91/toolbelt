@@ -52,6 +52,7 @@ export const draftBodyAtom = atom("");
 export const editingAtom = atom<Record<string, boolean>>({});
 export const versionsAtom = atom<Record<string, number>>({});
 export const busyAtom = atom(false);
+/** Prompt text after submit, `""` for no-action, or `null` while waiting. */
 export const doneAtom = atom<string | null>(null);
 export const viewerAtom = atom<CodeViewHandle<CommentMeta> | null>(null);
 
@@ -267,7 +268,7 @@ export const submitAtom = atom(null, async (get, set) => {
     set(busyAtom, false);
     return;
   }
-  const data = (await res.json()) as { prompt: string };
-  set(doneAtom, data.prompt);
+  const data = (await res.json()) as { prompt: string | null };
+  set(doneAtom, data.prompt ?? "");
   set(busyAtom, false);
 });
