@@ -23,7 +23,7 @@ When the user asks to review changes with toolbelt:
    - `note: path` — comments without reject
    - `edit: path` then `<<<`…`>>>` — replace file with that body
    - `notes: …` — overall direction
-   Do not skip locations.
+     Do not skip locations.
 
 ## Other commands
 

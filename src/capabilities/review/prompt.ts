@@ -39,9 +39,9 @@ const contentsFor = (file: ReviewFile | undefined, side: AnnotationSide) =>
 export const hasActionableFeedback = (feedback: ReviewFeedback): boolean =>
   Boolean(
     feedback.notes.trim() ||
-      feedback.comments.length ||
-      feedback.edits.length ||
-      feedback.files.some((f) => f.verdict !== "pending"),
+    feedback.comments.length ||
+    feedback.edits.length ||
+    feedback.files.some((f) => f.verdict !== "pending"),
   );
 
 export const parseFeedback = (body: unknown): Result<ReviewFeedback, string> => {
@@ -110,10 +110,7 @@ const rangeMark = (start: number, end: number) =>
   start === end ? `L${start}` : `L${start}-${end}`;
 
 /** One comment as compact lines: `  +L2: body` then optional `  | snippet`. */
-const commentLines = (
-  c: ReviewComment,
-  contents: string | null,
-): string[] => {
+const commentLines = (c: ReviewComment, contents: string | null): string[] => {
   const out = [`  ${sideMark(c.side)}${rangeMark(c.startLine, c.endLine)}: ${c.body}`];
   const snippet = excerpt(contents, c.startLine, c.endLine);
   if (snippet) {
