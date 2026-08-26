@@ -15,13 +15,19 @@ description: >
 When the user asks to review changes with toolbelt:
 
 1. Run `tb review --host`.
-2. It opens a local diff UI and blocks until they submit.
-3. Stdout contains a prompt between `<<<TOOLBELT_REVIEW` and `TOOLBELT_REVIEW>>>`.
-4. Apply that prompt as the next iteration: keep approved files, address unapproved files and line comments (with the cited locations), apply requested edits. Do not skip locations.
+2. Blocks until submit or tab close.
+3. No `<<<TOOLBELT_REVIEW`…`TOOLBELT_REVIEW>>>` → no action.
+4. Else apply compact payload (data only; unlisted = leave alone):
+   - `ok: path…` — keep
+   - `fix: path` — revise/revert; following `  +L2:` / `  -L2:` are comments (`|` = snippet)
+   - `note: path` — comments without reject
+   - `edit: path` then `<<<`…`>>>` — replace file with that body
+   - `notes: …` — overall direction
+   Do not skip locations.
 
 ## Other commands
 
-- `tb switch [branch]` — checkout a local branch (prefix ok)
+- `tb switch [branch]` — checkout a branch (prefix ok; fetches remote if not local)
 - `tb branch-cleaner` — delete merged/gone local branches
 - `tb setup ai` / `tb install ai` — install the AI stack (rtk, skills, global rules)
 - `tb upgrade ai` / `tb update ai` — refresh that stack

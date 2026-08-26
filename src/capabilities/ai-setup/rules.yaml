@@ -13,10 +13,10 @@
   title: Review
   body: >
     When I ask to review changes with toolbelt, run `tb review --host` from the repo root.
-    It opens a local diff UI, blocks until I submit, then prints a prompt between
-    `<<<TOOLBELT_REVIEW` and `TOOLBELT_REVIEW>>>`. Apply that prompt as the next iteration:
-    keep approved files, address unapproved files and line comments (with the cited locations),
-    and apply any requested edits. Do not skip locations.
+    Blocks until submit or tab close. No `<<<TOOLBELT_REVIEW`…`TOOLBELT_REVIEW>>>` → no action.
+    Else apply compact payload: `ok:` keep; `fix:` revise/revert (+/-L comments, `|` snippet);
+    `note:` comments only; `edit:` + `<<<`…`>>>` replace file; `notes:` overall. Unlisted = leave alone.
+    Do not skip locations.
 
 - id: git-identity
   title: Git identity
