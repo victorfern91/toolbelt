@@ -109,7 +109,7 @@ export type RepoSnapshot = { base: string; branches: Branch[] };
 /**
  * assert repo + refresh remotes + resolve default branch in parallel, then list
  * branches — one Result for the whole load, so callers check errors once.
- * Pass `{ prune: false }` to skip fetch (local-only tools like switch).
+ * Pass `{ prune: false }` to skip fetch (e.g. switch UI — remote fetch is on demand).
  */
 export const loadBranches = async (
   opts: { prune?: boolean } = {},
@@ -128,6 +128,41 @@ export const loadBranches = async (
 
 export const switchBranch = (name: string) =>
   name === "-" ? git("switch", "-") : git("switch", "--", name);
+
+/** Short names under refs/remotes/* (no remote prefix). HEAD skipped; deduped across remotes. */
+export const listRemoteBranchNames = async (): Promise<Result<string[], unknown>> => {
+  const raw = await git("for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes");
+  if (raw.isErr()) return err(raw.error);
+  return ok([
+    ...new Set(
+      raw.value
+        .split("\n")
+        .map((n) => n.trim())
+        .filter((n) => n && n !== "HEAD" && !n.endsWith("/HEAD")),
+    ),
+  ]);
+};
+
+/**
+ * Resolve a branch that only exists on a remote: fetch, match name/prefix, then
+ * `git switch` (creates a local tracking branch when guess finds a unique remote).
+ */
+export const switchFromRemote = async (query: string): Promise<Result<string, unknown>> => {
+  await fetchPrune();
+  const remote = await listRemoteBranchNames();
+  if (remote.isErr()) return err(remote.error);
+  const resolved = resolveBranch(query, remote.value);
+  if (resolved instanceof Error) {
+    return err(
+      /no local branch/.test(resolved.message)
+        ? new Error(`no branch matching "${query}"`)
+        : resolved,
+    );
+  }
+  const r = await switchBranch(resolved);
+  if (r.isErr()) return err(r.error);
+  return ok(resolved);
+};
 
 /** Exact name, then unique prefix, then unique substring. `-` is previous branch. */
 export const resolveBranch = (query: string, names: string[]): string | Error => {

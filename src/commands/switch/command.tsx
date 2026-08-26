@@ -5,6 +5,7 @@ import {
   loadBranches,
   resolveBranch,
   switchBranch,
+  switchFromRemote,
   type Branch,
 } from "../../capabilities/git/index.ts";
 import { Busy, Caret, Fail, Hints, Page, Screen } from "../../ui/screen.tsx";
@@ -122,7 +123,15 @@ export const checkoutArg = async (rest: string[]): Promise<Result<void, unknown>
   if (res.isErr()) return err(res.error);
   const names = res.value.branches.map((b) => b.name);
   const resolved = resolveBranch(query, names);
-  if (resolved instanceof Error) return err(resolved);
+
+  if (resolved instanceof Error) {
+    if (!/no local branch/.test(resolved.message)) return err(resolved);
+    const remote = await switchFromRemote(query);
+    if (remote.isErr()) return err(remote.error);
+    console.log(`✓ ${remote.value} (from remote)`);
+    return ok(undefined);
+  }
+
   const r = await checkoutResolved(resolved, res.value.branches);
   if (r.isErr()) return err(r.error);
   const already = res.value.branches.find((b) => b.current)?.name === r.value;
@@ -132,7 +141,11 @@ export const checkoutArg = async (rest: string[]): Promise<Result<void, unknown>
 
 registerTool({
   name: "switch",
-  desc: "checkout a local git branch",
+  desc: "checkout a git branch (fetches remote if missing locally)",
   ui: () => <Switch />,
-  args: { usage: "[branch]", desc: "checkout by name (prefix ok)", run: checkoutArg },
+  args: {
+    usage: "[branch]",
+    desc: "checkout by name (prefix ok; remote if not local)",
+    run: checkoutArg,
+  },
 });

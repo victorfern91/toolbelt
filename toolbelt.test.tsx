@@ -77,6 +77,26 @@ test("switch checks out a local branch", async () => {
   await switchBranch("main");
 });
 
+test("switch creates local branch from remote", async () => {
+  const bare = mkdtempSync(join(tmpdir(), "toolbelt-bare-"));
+  try {
+    expect(sh(`git clone -q --bare "${repo}" "${bare}"`)).toBe(0);
+    expect(sh(`git remote add origin "${bare}"`)).toBe(0);
+    expect(sh(`git push -q -u origin wip:remote-only`)).toBe(0);
+    expect(sh(`git branch -D remote-only 2>/dev/null; true`)).toBe(0);
+
+    const { switchFromRemote } = await import("./src/capabilities/git/index.ts");
+    const r = await switchFromRemote("remote-only");
+    expect(r.isOk()).toBe(true);
+    expect(r._unsafeUnwrap()).toBe("remote-only");
+    const cur = Bun.spawnSync(["git", "branch", "--show-current"], { cwd: repo });
+    expect(cur.stdout.toString().trim()).toBe("remote-only");
+    await switchBranch("main");
+  } finally {
+    rmSync(bare, { recursive: true, force: true });
+  }
+});
+
 test("version compare", async () => {
   const { isNewer } = await import("./src/update.ts");
   expect(isNewer("v0.2.0", "0.1.0")).toBe(true);
