@@ -2,7 +2,10 @@ import { useEffect, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
 import { err, ok, type Result } from "neverthrow";
 import {
+  listRemoteBranchNames,
   loadBranches,
+  mainMasterFallback,
+  pullCurrent,
   resolveBranch,
   switchBranch,
   switchFromRemote,
@@ -22,9 +25,11 @@ async function checkoutResolved(
   branches: Branch[],
 ): Promise<Result<string, unknown>> {
   const current = branches.find((b) => b.current)?.name;
-  if (name !== "-" && name === current) return ok(name);
-  const r = await switchBranch(name);
-  if (r.isErr()) return err(r.error);
+  if (name === "-" || name !== current) {
+    const r = await switchBranch(name);
+    if (r.isErr()) return err(r.error);
+  }
+  await pullCurrent();
   return ok(name);
 }
 
@@ -118,17 +123,20 @@ export function Switch() {
 }
 
 export const checkoutArg = async (rest: string[]): Promise<Result<void, unknown>> => {
-  const query = rest[0] ?? "";
   const res = await loadBranches({ prune: false });
   if (res.isErr()) return err(res.error);
   const names = res.value.branches.map((b) => b.name);
+  const asked = rest[0] ?? "";
+  const remote = await listRemoteBranchNames();
+  const query = mainMasterFallback(asked, names, remote.isOk() ? remote.value : []);
+  if (query !== asked) console.log(`no ${asked}, using ${query}`);
   const resolved = resolveBranch(query, names);
 
   if (resolved instanceof Error) {
     if (!/no local branch/.test(resolved.message)) return err(resolved);
-    const remote = await switchFromRemote(query);
-    if (remote.isErr()) return err(remote.error);
-    console.log(`✓ ${remote.value} (from remote)`);
+    const fetched = await switchFromRemote(query);
+    if (fetched.isErr()) return err(fetched.error);
+    console.log(`✓ ${fetched.value} (from remote)`);
     return ok(undefined);
   }
 
@@ -141,11 +149,11 @@ export const checkoutArg = async (rest: string[]): Promise<Result<void, unknown>
 
 registerTool({
   name: "switch",
-  desc: "checkout a git branch (fetches remote if missing locally)",
+  desc: "checkout + pull a git branch (fetches remote if missing locally)",
   ui: () => <Switch />,
   args: {
     usage: "[branch]",
-    desc: "checkout by name (prefix ok; remote if not local)",
+    desc: "checkout by name (prefix ok; remote if not local; main↔master fallback)",
     run: checkoutArg,
   },
 });

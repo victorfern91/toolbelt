@@ -27,7 +27,7 @@ When the user asks to review changes with toolbelt:
 
 ## Other commands
 
-- `tb switch [branch]` — checkout a branch (prefix ok; fetches remote if not local)
+- `tb switch [branch]` — checkout + pull a branch (prefix ok; fetches remote if not local; main↔master fallback)
 - `tb branch-cleaner` — delete merged/gone local branches
 - `tb setup ai` / `tb install ai` — install the AI stack (rtk, skills, global rules)
 - `tb upgrade ai` / `tb update ai` — refresh that stack

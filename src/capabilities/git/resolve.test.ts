@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { resolveBranch } from "./index.ts";
+import { mainMasterFallback, resolveBranch } from "./index.ts";
 
 const names = ["main", "feat/login", "feat/logout", "wip"];
 
@@ -27,4 +27,13 @@ test("no match", () => {
   const r = resolveBranch("nope", names);
   expect(r).toBeInstanceOf(Error);
   expect((r as Error).message).toContain("no local branch");
+});
+
+test("main/master fallback", () => {
+  expect(mainMasterFallback("master", ["main"], [])).toBe("main");
+  expect(mainMasterFallback("main", [], ["master"])).toBe("master");
+  expect(mainMasterFallback("main", ["master"], ["main"])).toBe("main");
+  expect(mainMasterFallback("main", ["main", "master"], [])).toBe("main");
+  expect(mainMasterFallback("main", [], [])).toBe("main");
+  expect(mainMasterFallback("dev", ["main"], [])).toBe("dev");
 });

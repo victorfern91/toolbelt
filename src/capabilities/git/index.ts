@@ -181,3 +181,20 @@ export const resolveBranch = (query: string, names: string[]): string | Error =>
   if (contained !== null) return contained;
   return new Error(`no local branch matching "${query}"`);
 };
+
+/** `git pull --ff-only` on the current branch; never errors (no upstream = skip, offline/diverged = warn). */
+export const pullCurrent = async () => {
+  const upstream = await git("rev-parse", "--abbrev-ref", "@{u}");
+  if (upstream.isErr()) return;
+  const r = await git("pull", "--ff-only");
+  if (r.isErr()) logger.warn(`git pull failed: ${errMsg(r.error)}`);
+};
+
+const MAIN_ALIAS: Record<string, string> = { main: "master", master: "main" };
+
+/** `main` ↔ `master` swap when the asked one exists nowhere but the other does. */
+export const mainMasterFallback = (query: string, local: string[], remote: string[]): string => {
+  const alt = MAIN_ALIAS[query];
+  if (!alt || local.includes(query) || remote.includes(query)) return query;
+  return local.includes(alt) || remote.includes(alt) ? alt : query;
+};
