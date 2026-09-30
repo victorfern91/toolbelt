@@ -65,7 +65,12 @@ p = Path("Book.java")
 p.write_text(p.read_text().replace("  int pages) {", "  int pages,\\n  boolean illustrated) {"))
 PY
 git add Book.java && git -c user.email=t@t -c user.name=t commit -q -m illustrated`);
-  const merge = Bun.spawnSync(["git", "merge", "--no-ff", "feature"], { cwd: repo });
+  // git merge refuses to start without a committer ident, even when the
+  // result will be a conflict. CI hosts cannot auto-detect one.
+  const merge = Bun.spawnSync(
+    ["git", "-c", "user.email=t@t", "-c", "user.name=t", "merge", "--no-ff", "feature"],
+    { cwd: repo },
+  );
   expect(merge.exitCode).not.toBe(0);
 
   const r = await collectConflicts();
@@ -88,7 +93,11 @@ git checkout -q -b other
 printf 'theirs\\n' > f.txt && git add f.txt && git -c user.email=t@t -c user.name=t commit -q -m theirs
 git checkout -q main
 printf 'ours\\n' > f.txt && git add f.txt && git -c user.email=t@t -c user.name=t commit -q -m ours`);
-  expect(Bun.spawnSync(["git", "merge", "other"], { cwd: repo }).exitCode).not.toBe(0);
+  expect(
+    Bun.spawnSync(["git", "-c", "user.email=t@t", "-c", "user.name=t", "merge", "other"], {
+      cwd: repo,
+    }).exitCode,
+  ).not.toBe(0);
 
   const applied = await applyResolutions(repo, [{ path: "f.txt", contents: "ours\n" }]);
   expect(applied.isOk()).toBe(true);
