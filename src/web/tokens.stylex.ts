@@ -13,7 +13,7 @@ export const tokens = stylex.defineVars({
   ok: "#499c54",
   warn: "#c9a54e",
   danger: "#e05765",
-  border: "#393b40",
+  border: "#2a2c2e",
   conflictBg: "#5c4033",
   conflictFg: "#d5a076",
   oursBg: "#294436",

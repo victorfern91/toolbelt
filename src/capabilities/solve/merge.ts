@@ -285,6 +285,73 @@ export function regionTheirs(r: MergeRegion): string[] {
   return r.theirs;
 }
 
+export function regionBase(r: MergeRegion): string[] {
+  if (r.kind === "stable" || r.kind === "same") return r.lines;
+  return r.base;
+}
+
+export function sideIncluded(
+  r: MergeRegion,
+  pick: PickSide | undefined,
+  auto: boolean,
+  side: "ours" | "theirs",
+): boolean {
+  if (pick === "both" || pick === side) return true;
+  if (pick === "base") return false;
+  return pick == null && auto && r.kind === side;
+}
+
+const fromSides = (ours: boolean, theirs: boolean, conflict: boolean): PickSide | undefined => {
+  if (ours && theirs) return "both";
+  if (ours) return "ours";
+  if (theirs) return "theirs";
+  return conflict ? undefined : "base";
+};
+
+export function toggleRegionSide(
+  r: MergeRegion,
+  pick: PickSide | undefined,
+  side: "ours" | "theirs",
+  auto: boolean,
+): PickSide | undefined {
+  const ours =
+    side === "ours" ? !sideIncluded(r, pick, auto, "ours") : sideIncluded(r, pick, auto, "ours");
+  const theirs =
+    side === "theirs"
+      ? !sideIncluded(r, pick, auto, "theirs")
+      : sideIncluded(r, pick, auto, "theirs");
+  return fromSides(ours, theirs, r.kind === "conflict");
+}
+
+export function dropRegionSide(
+  r: MergeRegion,
+  pick: PickSide | undefined,
+  side: "ours" | "theirs",
+  auto: boolean,
+): PickSide | undefined {
+  const ours = sideIncluded(r, pick, auto, "ours") && side !== "ours";
+  const theirs = sideIncluded(r, pick, auto, "theirs") && side !== "theirs";
+  return fromSides(ours, theirs, r.kind === "conflict");
+}
+
+export function pickableRegionAtLine(
+  regions: MergeRegion[],
+  file: "ours" | "theirs" | "base",
+  lineNumber: number,
+): MergeRegion | undefined {
+  let n = 1;
+  for (const r of regions) {
+    const lines =
+      file === "ours" ? regionOurs(r) : file === "theirs" ? regionTheirs(r) : regionBase(r);
+    const next = n + lines.length;
+    if (lineNumber >= n && lineNumber < next) {
+      return r.kind === "stable" || r.kind === "same" ? undefined : r;
+    }
+    n = next;
+  }
+  return undefined;
+}
+
 export function resultLines(
   r: MergeRegion,
   pick: PickSide | undefined,

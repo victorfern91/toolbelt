@@ -164,11 +164,16 @@ const styles = stylex.create({
     color: tokens.text,
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: tokens.accent2,
+    borderColor: tokens.border,
     cursor: "pointer",
   },
   chevTake: { color: tokens.accent2 },
   chevReject: { color: tokens.danger },
+  chevBoth: { color: tokens.ok, fontSize: 11 },
+  chevActive: {
+    backgroundColor: "color-mix(in oklab, #3574f0 28%, #2b2d30)",
+    borderColor: tokens.accent,
+  },
   toggle: {
     display: "flex",
     alignItems: "center",
@@ -259,7 +264,7 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "default" | "primary" | "ok" | "danger";
   active?: boolean;
-  chev?: "take" | "reject";
+  chev?: "take" | "reject" | "both";
 }) {
   return (
     <button
@@ -275,6 +280,8 @@ export function Button({
         active && variant === "danger" && styles.dangerActive,
         chev === "take" && styles.chevTake,
         chev === "reject" && styles.chevReject,
+        chev === "both" && styles.chevBoth,
+        chev && active && styles.chevActive,
       )}
     />
   );

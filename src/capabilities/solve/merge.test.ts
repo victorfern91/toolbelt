@@ -9,6 +9,7 @@ import {
   mergeFiles,
   pendingChangeCount,
   splitLines,
+  toggleRegionSide,
 } from "./merge.ts";
 
 test("split/join round-trip preserves eof newline", () => {
@@ -69,6 +70,9 @@ test("divergent edits of the same line are a conflict", () => {
   expect(theirs.text).toBe("a\nY\nc\n");
   const both = materialize(regions, { [conflict!.id]: "both" }, {}, true, true);
   expect(both.text).toBe("a\nX\nY\nc\n");
+  expect(toggleRegionSide(conflict!, undefined, "ours", true)).toBe("ours");
+  expect(toggleRegionSide(conflict!, "ours", "theirs", true)).toBe("both");
+  expect(toggleRegionSide(conflict!, "both", "ours", true)).toBe("theirs");
 });
 
 test("inserts at the same position conflict", () => {

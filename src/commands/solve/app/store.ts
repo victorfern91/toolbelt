@@ -2,10 +2,12 @@ import { atom } from "jotai";
 import type { ConflictFile, ConflictSnapshot } from "../../../capabilities/solve/types.ts";
 import {
   conflictCount,
+  dropRegionSide,
   materialize,
   mergeFiles,
   pendingChangeCount,
   splitLines,
+  toggleRegionSide,
   type MergeRegion,
   type PickSide,
 } from "../../../capabilities/solve/merge.ts";
@@ -13,9 +15,10 @@ import {
 export type FileState = {
   picks: Record<string, PickSide>;
   manual: Record<string, string[]>;
+  override: string | null;
 };
 
-const emptyState = (): FileState => ({ picks: {}, manual: {} });
+const emptyState = (): FileState => ({ picks: {}, manual: {}, override: null });
 
 export const snapshotAtom = atom<ConflictSnapshot | null>(null);
 export const errorAtom = atom("");
@@ -51,7 +54,7 @@ export const eofNewlineAtom = atom((get) => {
   return texts.some((t) => t.endsWith("\n"));
 });
 
-export const resolvedAtom = atom((get) => {
+export const materializedAtom = atom((get) => {
   const file = get(activeFileAtom);
   const regions = get(regionsAtom);
   const state = get(activeStateAtom);
@@ -68,6 +71,19 @@ export const resolvedAtom = atom((get) => {
     contents: del ? null : text,
     ready: unresolved.length === 0,
   };
+});
+
+export const resolvedAtom = atom((get) => {
+  const override = get(activeStateAtom).override;
+  if (override != null) {
+    return {
+      text: override,
+      unresolved: [] as string[],
+      contents: override,
+      ready: true,
+    };
+  }
+  return get(materializedAtom);
 });
 
 export const statsAtom = atom((get) => {
@@ -115,6 +131,14 @@ const patchFile = (
   set({ ...all, [path]: fn(all[path] ?? emptyState()) });
 };
 
+const writePick = (s: FileState, regionId: string, pick: PickSide | undefined): FileState => {
+  const picks = { ...s.picks };
+  if (pick == null) delete picks[regionId];
+  else picks[regionId] = pick;
+  const manual = Object.fromEntries(Object.entries(s.manual).filter(([id]) => id !== regionId));
+  return { picks, manual, override: null };
+};
+
 export const pickRegionAtom = atom(
   null,
   (get, set, { regionId, pick }: { regionId: string; pick: PickSide }) => {
@@ -124,29 +148,44 @@ export const pickRegionAtom = atom(
       () => get(filesStateAtom),
       (v) => set(filesStateAtom, v),
       path,
-      (s) => ({
-        picks: { ...s.picks, [regionId]: pick },
-        manual: Object.fromEntries(Object.entries(s.manual).filter(([id]) => id !== regionId)),
-      }),
+      (s) => writePick(s, regionId, pick),
     );
   },
 );
 
-export const rejectRegionAtom = atom(null, (get, set, regionId: string) => {
-  const path = get(activePathAtom);
-  if (!path) return;
-  patchFile(
-    () => get(filesStateAtom),
-    (v) => set(filesStateAtom, v),
-    path,
-    (s) => ({
-      picks: { ...s.picks, [regionId]: "base" },
-      manual: Object.fromEntries(Object.entries(s.manual).filter(([id]) => id !== regionId)),
-    }),
-  );
-});
+export const toggleSideAtom = atom(
+  null,
+  (get, set, { regionId, side }: { regionId: string; side: "ours" | "theirs" }) => {
+    const path = get(activePathAtom);
+    const region = get(regionsAtom).find((r) => r.id === regionId);
+    if (!path || !region) return;
+    const auto = get(autoNonConflictAtom);
+    patchFile(
+      () => get(filesStateAtom),
+      (v) => set(filesStateAtom, v),
+      path,
+      (s) => writePick(s, regionId, toggleRegionSide(region, s.picks[regionId], side, auto)),
+    );
+  },
+);
 
-export const acceptAllAtom = atom(null, (get, set, side: "ours" | "theirs") => {
+export const rejectRegionAtom = atom(
+  null,
+  (get, set, { regionId, side }: { regionId: string; side: "ours" | "theirs" }) => {
+    const path = get(activePathAtom);
+    const region = get(regionsAtom).find((r) => r.id === regionId);
+    if (!path || !region) return;
+    const auto = get(autoNonConflictAtom);
+    patchFile(
+      () => get(filesStateAtom),
+      (v) => set(filesStateAtom, v),
+      path,
+      (s) => writePick(s, regionId, dropRegionSide(region, s.picks[regionId], side, auto)),
+    );
+  },
+);
+
+export const acceptAllAtom = atom(null, (get, set, side: "ours" | "theirs" | "both") => {
   const path = get(activePathAtom);
   const regions = get(regionsAtom);
   if (!path) return;
@@ -158,7 +197,7 @@ export const acceptAllAtom = atom(null, (get, set, side: "ours" | "theirs") => {
     () => get(filesStateAtom),
     (v) => set(filesStateAtom, v),
     path,
-    (s) => ({ picks: { ...s.picks, ...picks }, manual: {} }),
+    (s) => ({ picks: { ...s.picks, ...picks }, manual: {}, override: null }),
   );
 });
 
@@ -174,10 +213,22 @@ export const editRegionAtom = atom(
       (s) => ({
         picks: s.picks,
         manual: { ...s.manual, [regionId]: lines },
+        override: s.override,
       }),
     );
   },
 );
+
+export const editResultAtom = atom(null, (get, set, contents: string) => {
+  const path = get(activePathAtom);
+  if (!path) return;
+  patchFile(
+    () => get(filesStateAtom),
+    (v) => set(filesStateAtom, v),
+    path,
+    (s) => ({ ...s, override: contents }),
+  );
+});
 
 export const applyCurrentAtom = atom(null, async (get, set) => {
   const snap = get(snapshotAtom);

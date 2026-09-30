@@ -131,6 +131,9 @@ export function App() {
             <Button type="button" onClick={() => acceptAll("theirs")}>
               Accept Right
             </Button>
+            <Button type="button" onClick={() => acceptAll("both")}>
+              Accept Both
+            </Button>
           </Row>
           <Row>
             <Button type="button" onClick={() => void abandon()}>
