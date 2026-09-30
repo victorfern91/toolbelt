@@ -1,4 +1,3 @@
-import "../../../web/reset.css";
 import { createRoot } from "react-dom/client";
 import { Provider } from "jotai";
 import { EditProvider } from "@pierre/diffs/react";
