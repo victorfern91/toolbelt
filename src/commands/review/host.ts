@@ -17,11 +17,7 @@ export type ReviewHost = {
   done: Promise<string | null>;
 };
 
-const listen = (
-  port: number,
-  snapshot: ReviewSnapshot,
-  finish: (prompt: string | null) => void,
-) =>
+const listen = (port: number, snapshot: ReviewSnapshot, finish: (prompt: string | null) => void) =>
   Bun.serve({
     port,
     hostname: "127.0.0.1",
