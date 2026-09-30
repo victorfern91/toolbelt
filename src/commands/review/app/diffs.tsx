@@ -2,6 +2,8 @@ import { useCallback, useMemo } from "react";
 import type { CodeViewItem, CodeViewReactOptions, DiffLineAnnotation } from "@pierre/diffs/react";
 import { CodeView } from "@pierre/diffs/react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { Button, Fill, Note, NoteBody, NoteHead, Row, TextArea } from "../../../web/chrome.tsx";
+import { pierreBase } from "../../../web/pierre.ts";
 import {
   itemsAtom,
   viewerAtom,
@@ -26,35 +28,33 @@ function FileActions({ path, canEdit }: { path: string; canEdit: boolean }) {
   const toggleVerdict = useSetAtom(toggleVerdictAtom);
   const toggleEditing = useSetAtom(toggleEditingAtom);
   return (
-    <span className="file-actions">
-      <button
+    <Row>
+      <Button
         type="button"
-        className={verdict === "approved" ? "ok active" : "ok"}
+        variant="ok"
+        active={verdict === "approved"}
         onClick={() => toggleVerdict({ path, verdict: "approved" })}
       >
         Accept
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
-        className={verdict === "unapproved" ? "danger active" : "danger"}
+        variant="danger"
+        active={verdict === "unapproved"}
         onClick={() => toggleVerdict({ path, verdict: "unapproved" })}
       >
         {verdict === "unapproved" ? "Rejected" : "Reject Changes"}
-      </button>
+      </Button>
       {canEdit ? (
-        <button
-          type="button"
-          className={editing ? "active" : ""}
-          onClick={() => toggleEditing(path)}
-        >
+        <Button type="button" active={editing} onClick={() => toggleEditing(path)}>
           {editing ? "Editing" : "Edit"}
-        </button>
+        </Button>
       ) : null}
-    </span>
+    </Row>
   );
 }
 
-function Note({ annotation }: { annotation: DiffLineAnnotation<CommentMeta> }) {
+function NoteView({ annotation }: { annotation: DiffLineAnnotation<CommentMeta> }) {
   const remove = useSetAtom(removeCommentAtom);
   const meta = annotation.metadata;
   const range =
@@ -62,15 +62,15 @@ function Note({ annotation }: { annotation: DiffLineAnnotation<CommentMeta> }) {
       ? `L${annotation.lineNumber}`
       : `L${annotation.lineNumber}–${meta.endLine}`;
   return (
-    <div className="note">
-      <div className="note-head">
+    <Note>
+      <NoteHead>
         <span>Comment {range}</span>
-        <button type="button" onClick={() => remove(meta.id)} aria-label="Remove comment">
+        <Button type="button" onClick={() => remove(meta.id)} aria-label="Remove comment">
           ×
-        </button>
-      </div>
-      <p>{meta.body}</p>
-    </div>
+        </Button>
+      </NoteHead>
+      <NoteBody>{meta.body}</NoteBody>
+    </Note>
   );
 }
 
@@ -84,36 +84,37 @@ function DraftNote() {
   const end = Math.max(range.range.start, range.range.end);
   const label = start === end ? `L${start}` : `L${start}–${end}`;
   return (
-    <form
-      className="note note-draft"
-      onSubmit={(e) => {
-        e.preventDefault();
-        addComment();
-      }}
-    >
-      <div className="note-head">Comment {label}</div>
-      <textarea
-        autoFocus
-        placeholder="Add a comment on this change…"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            addComment();
-          }
-          if (e.key === "Escape") cancel();
+    <Note draft>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          addComment();
         }}
-      />
-      <div className="row">
-        <button className="primary" type="submit" disabled={!body.trim()}>
-          Add comment
-        </button>
-        <button type="button" onClick={() => cancel()}>
-          Cancel
-        </button>
-      </div>
-    </form>
+      >
+        <NoteHead>Comment {label}</NoteHead>
+        <TextArea
+          autoFocus
+          placeholder="Add a comment on this change…"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              addComment();
+            }
+            if (e.key === "Escape") cancel();
+          }}
+        />
+        <Row>
+          <Button variant="primary" type="submit" disabled={!body.trim()}>
+            Add comment
+          </Button>
+          <Button type="button" onClick={() => cancel()}>
+            Cancel
+          </Button>
+        </Row>
+      </form>
+    </Note>
   );
 }
 
@@ -126,17 +127,13 @@ export function Diffs() {
 
   const options = useMemo<CodeViewReactOptions<CommentMeta>>(
     () => ({
-      theme: "pierre-dark",
-      themeType: "dark",
+      ...pierreBase,
+      stickyHeaders: true,
+      hunkSeparators: "line-info-basic",
       diffStyle: "split",
-      diffIndicators: "classic",
-      overflow: "wrap",
       enableLineSelection: true,
       enableGutterUtility: true,
-      hunkSeparators: "line-info-basic",
-      preferredHighlighter: "shiki-js",
       lineHoverHighlight: "line",
-      stickyHeaders: true,
       parseDiffOptions: hideWhitespace ? { ignoreWhitespace: true } : undefined,
       layout: { paddingTop: 12, paddingBottom: 16, gap: 16 },
       onGutterUtilityClick: (range, context) => {
@@ -162,23 +159,24 @@ export function Diffs() {
     (annotation: DiffLineAnnotation<CommentMeta> | { lineNumber: number }) => {
       if (!("side" in annotation)) return null;
       if (annotation.metadata.draft) return <DraftNote />;
-      return <Note annotation={annotation} />;
+      return <NoteView annotation={annotation} />;
     },
     [],
   );
 
   return (
-    <CodeView<CommentMeta>
-      ref={setViewer}
-      className="diffs"
-      style={{ overflow: "auto" }}
-      items={items}
-      options={options}
-      editorOptions={editorOptions}
-      renderHeaderMetadata={renderHeaderMetadata}
-      renderAnnotation={renderAnnotation}
-      onItemEditChange={(item, file) => recordEdit({ path: item.id, contents: file.contents })}
-      disableWorkerPool
-    />
+    <Fill>
+      <CodeView<CommentMeta>
+        ref={setViewer}
+        style={{ overflow: "auto", height: "100%" }}
+        items={items}
+        options={options}
+        editorOptions={editorOptions}
+        renderHeaderMetadata={renderHeaderMetadata}
+        renderAnnotation={renderAnnotation}
+        onItemEditChange={(item, file) => recordEdit({ path: item.id, contents: file.contents })}
+        disableWorkerPool
+      />
+    </Fill>
   );
 }

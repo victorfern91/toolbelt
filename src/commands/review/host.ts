@@ -1,5 +1,5 @@
+import { join } from "node:path";
 import { err, ok, type Result } from "neverthrow";
-import homepage from "./app/index.html";
 import { collectSnapshot } from "../../capabilities/review/snapshot.ts";
 import {
   hasActionableFeedback,
@@ -8,6 +8,8 @@ import {
   wrapReviewPrompt,
 } from "../../capabilities/review/prompt.ts";
 import type { ReviewSnapshot } from "../../capabilities/review/types.ts";
+import { openBrowser } from "../../utils/open.ts";
+import { bundleHtml, staticFile } from "../../web/hosted.ts";
 
 /** Resolved prompt text, or `null` when the reviewer abandoned / left no feedback. */
 export type ReviewHost = {
@@ -16,22 +18,16 @@ export type ReviewHost = {
   done: Promise<string | null>;
 };
 
-const openBrowser = (url: string) => {
-  const cmd =
-    process.platform === "darwin"
-      ? ["open", url]
-      : process.platform === "win32"
-        ? ["cmd", "/c", "start", "", url]
-        : ["xdg-open", url];
-  Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore", stdin: "ignore" });
-};
-
-const listen = (port: number, snapshot: ReviewSnapshot, finish: (prompt: string | null) => void) =>
+const listen = (
+  port: number,
+  snapshot: ReviewSnapshot,
+  outdir: string,
+  finish: (prompt: string | null) => void,
+) =>
   Bun.serve({
     port,
     hostname: "127.0.0.1",
     routes: {
-      "/": homepage,
       "/api/snapshot": {
         GET: () => Response.json(snapshot),
       },
@@ -55,12 +51,12 @@ const listen = (port: number, snapshot: ReviewSnapshot, finish: (prompt: string 
         },
       },
       "/api/abandon": {
-        // pagehide beacon — no body; treat as no action
         POST: () => {
           queueMicrotask(() => finish(null));
           return new Response(null, { status: 204 });
         },
       },
+      "/*": (req: Request) => staticFile(outdir, req),
     },
   });
 
@@ -84,12 +80,18 @@ export const startReviewHost = async (opts?: {
     resolveDone(prompt);
   };
 
+  let ui: Awaited<ReturnType<typeof bundleHtml>>;
+  try {
+    ui = await bundleHtml(join(import.meta.dir, "app/index.html"));
+  } catch (e) {
+    return err(e);
+  }
   const preferred = opts?.port ?? 4173;
   let server: ReturnType<typeof Bun.serve>;
   try {
-    server = listen(preferred, snap.value, finish);
+    server = listen(preferred, snap.value, ui.outdir, finish);
   } catch {
-    server = listen(0, snap.value, finish);
+    server = listen(0, snap.value, ui.outdir, finish);
   }
 
   const url = `http://127.0.0.1:${server.port}`;
@@ -98,7 +100,10 @@ export const startReviewHost = async (opts?: {
   return ok({
     url,
     done,
-    stop: () => server.stop(true),
+    stop: () => {
+      server.stop(true);
+      ui.dispose();
+    },
   });
 };
 

@@ -2,3 +2,8 @@
 # mirror otherwise bakes unreachable URLs into bun.lock and breaks CI.
 [install]
 registry = "https://registry.npmjs.org"
+
+preload = ["./src/web/register-stylex.ts"]
+
+[serve.static]
+plugins = ["./src/web/stylex-plugin.ts"]

@@ -4,6 +4,7 @@
 //   bun run build        current platform, dist/toolbelt
 //   bun run build:all    every release target
 import type { BunPlugin } from "bun";
+import stylexPlugin from "../src/web/stylex-plugin.ts";
 
 const TARGETS = {
   "darwin-arm64": "bun-darwin-arm64",
@@ -37,7 +38,7 @@ for (const { target, outfile } of jobs) {
   const res = await Bun.build({
     entrypoints: ["src/cli.tsx"],
     minify: true,
-    plugins: [stubDevtools],
+    plugins: [stubDevtools, stylexPlugin],
     compile: { outfile, ...(target ? { target } : {}) },
   });
   if (!res.success) {

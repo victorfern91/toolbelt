@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { useAtomValue, useSetAtom } from "jotai";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import type { GitStatusEntry } from "@pierre/trees";
-import { snapshotAtom, activePathAtom, selectPathAtom } from "./store.ts";
+import { treeHostClassName } from "./chrome.tsx";
 
 const parents = (path: string) => {
   const parts = path.split("/");
@@ -11,11 +10,17 @@ const parents = (path: string) => {
   return out;
 };
 
-export function ChangesTree() {
-  const snapshot = useAtomValue(snapshotAtom);
-  const activePath = useAtomValue(activePathAtom);
-  const selectPath = useSetAtom(selectPathAtom);
-  const files = snapshot?.files ?? [];
+export type TreeFile = { path: string; status: GitStatusEntry["status"] };
+
+export function ChangesTree({
+  files,
+  activePath,
+  onSelect,
+}: {
+  files: TreeFile[];
+  activePath: string | null;
+  onSelect: (path: string) => void;
+}) {
   const paths = useMemo(() => files.map((f) => f.path), [files]);
   const gitStatus = useMemo<GitStatusEntry[]>(
     () => files.map((f) => ({ path: f.path, status: f.status })),
@@ -32,14 +37,14 @@ export function ChangesTree() {
     initialSelectedPaths: activePath ? [activePath] : paths.slice(0, 1),
     onSelectionChange: (selected) => {
       const path = selected.find((p) => files.some((f) => f.path === p));
-      if (path) selectPath(path);
+      if (path) onSelect(path);
     },
   });
 
   return (
     <FileTree
       model={model}
-      className="tree-host"
+      className={treeHostClassName()}
       style={{
         height: "100%",
         colorScheme: "dark",
