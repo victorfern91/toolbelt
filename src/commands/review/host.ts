@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { err, ok, type Result } from "neverthrow";
+import homepage from "./app/index.html";
 import { collectSnapshot } from "../../capabilities/review/snapshot.ts";
 import {
   hasActionableFeedback,
@@ -9,7 +9,6 @@ import {
 } from "../../capabilities/review/prompt.ts";
 import type { ReviewSnapshot } from "../../capabilities/review/types.ts";
 import { openBrowser } from "../../utils/open.ts";
-import { bundleHtml, staticFile } from "../../web/hosted.ts";
 
 /** Resolved prompt text, or `null` when the reviewer abandoned / left no feedback. */
 export type ReviewHost = {
@@ -21,13 +20,13 @@ export type ReviewHost = {
 const listen = (
   port: number,
   snapshot: ReviewSnapshot,
-  outdir: string,
   finish: (prompt: string | null) => void,
 ) =>
   Bun.serve({
     port,
     hostname: "127.0.0.1",
     routes: {
+      "/": homepage,
       "/api/snapshot": {
         GET: () => Response.json(snapshot),
       },
@@ -56,7 +55,6 @@ const listen = (
           return new Response(null, { status: 204 });
         },
       },
-      "/*": (req: Request) => staticFile(outdir, req),
     },
   });
 
@@ -80,18 +78,12 @@ export const startReviewHost = async (opts?: {
     resolveDone(prompt);
   };
 
-  let ui: Awaited<ReturnType<typeof bundleHtml>>;
-  try {
-    ui = await bundleHtml(join(import.meta.dir, "app/index.html"));
-  } catch (e) {
-    return err(e);
-  }
   const preferred = opts?.port ?? 4173;
   let server: ReturnType<typeof Bun.serve>;
   try {
-    server = listen(preferred, snap.value, ui.outdir, finish);
+    server = listen(preferred, snap.value, finish);
   } catch {
-    server = listen(0, snap.value, ui.outdir, finish);
+    server = listen(0, snap.value, finish);
   }
 
   const url = `http://127.0.0.1:${server.port}`;
@@ -100,10 +92,7 @@ export const startReviewHost = async (opts?: {
   return ok({
     url,
     done,
-    stop: () => {
-      server.stop(true);
-      ui.dispose();
-    },
+    stop: () => server.stop(true),
   });
 };
 

@@ -1,9 +1,8 @@
-import { join } from "node:path";
 import { err, ok, type Result } from "neverthrow";
+import homepage from "./app/index.html";
 import { applyResolutions, collectConflicts } from "../../capabilities/solve/snapshot.ts";
 import type { ApplyFile, ConflictSnapshot } from "../../capabilities/solve/types.ts";
 import { openBrowser } from "../../utils/open.ts";
-import { bundleHtml, staticFile } from "../../web/hosted.ts";
 
 export type SolveHost = {
   url: string;
@@ -30,13 +29,13 @@ const parseApply = (body: unknown): ApplyFile[] | Error => {
 const listen = (
   port: number,
   snapshot: ConflictSnapshot,
-  outdir: string,
   finish: (outcome: "applied" | "abandoned") => void,
 ) =>
   Bun.serve({
     port,
     hostname: "127.0.0.1",
     routes: {
+      "/": homepage,
       "/api/snapshot": {
         GET: () => Response.json(snapshot),
       },
@@ -65,7 +64,6 @@ const listen = (
           return new Response(null, { status: 204 });
         },
       },
-      "/*": (req: Request) => staticFile(outdir, req),
     },
   });
 
@@ -89,18 +87,12 @@ export const startSolveHost = async (opts?: {
     resolveDone(outcome);
   };
 
-  let ui: Awaited<ReturnType<typeof bundleHtml>>;
-  try {
-    ui = await bundleHtml(join(import.meta.dir, "app/index.html"));
-  } catch (e) {
-    return err(e);
-  }
   const preferred = opts?.port ?? 4174;
   let server: ReturnType<typeof Bun.serve>;
   try {
-    server = listen(preferred, snap.value, ui.outdir, finish);
+    server = listen(preferred, snap.value, finish);
   } catch {
-    server = listen(0, snap.value, ui.outdir, finish);
+    server = listen(0, snap.value, finish);
   }
 
   const url = `http://127.0.0.1:${server.port}`;
@@ -109,10 +101,7 @@ export const startSolveHost = async (opts?: {
   return ok({
     url,
     done,
-    stop: () => {
-      server.stop(true);
-      ui.dispose();
-    },
+    stop: () => server.stop(true),
   });
 };
 
