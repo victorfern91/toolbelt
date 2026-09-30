@@ -1,14 +1,14 @@
-/** Nord — the only colors this tool paints. Use `color` in Ink, `ansi` on stdout. */
+/** IntelliJ New UI Dark — the only colors this tool paints. Use `color` in Ink, `ansi` on stdout. */
 export const color = {
-  /** Badge fill, caret, hint keys */
-  chrome: "#B48EAD",
+  /** Badge fill, caret, hint keys — IntelliJ accent blue (not Nord purple) */
+  chrome: "#3574F0",
   /** Text sitting on `chrome` */
-  onChrome: "#2E3440",
+  onChrome: "#FFFFFF",
   /** Labels, current branch, busy */
-  accent: "#88C0D0",
-  ok: "#A3BE8C",
-  warn: "#EBCB8B",
-  danger: "#BF616A",
+  accent: "#6B9BFA",
+  ok: "#499C54",
+  warn: "#C9A54E",
+  danger: "#E05765",
 } as const;
 
 export type Color = (typeof color)[keyof typeof color];

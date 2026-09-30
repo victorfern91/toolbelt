@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import "./web/register-stylex.ts";
 import { render } from "ink";
 import "./commands/index.ts";
 import { findTool, tools } from "./commands/registry.ts";

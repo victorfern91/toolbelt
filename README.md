@@ -21,6 +21,7 @@ toolbelt update                 # latest binary, then refresh the AI stack
 toolbelt update ai              # refresh AI stack only
 toolbelt upgrade                # same as update
 toolbelt review --host          # local diff UI → agent prompt
+toolbelt solve                  # 3-pane merge/rebase conflict UI
 toolbelt --help
 ```
 
