@@ -163,7 +163,8 @@ export const startDraftAtom = atom(
   (get, set, { path, range }: { path: string; range: SelectedLineRange }) => {
     const prev = get(draftRangeAtom);
     set(draftRangeAtom, { path, range });
-    set(draftBodyAtom, "");
+    // Re-selecting (shift-click / drag to extend) keeps what was typed.
+    if (prev?.path !== path) set(draftBodyAtom, "");
     if (get(editingAtom)[path]) {
       set(editingAtom, { ...get(editingAtom), [path]: false });
     }

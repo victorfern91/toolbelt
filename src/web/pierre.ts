@@ -1,13 +1,19 @@
-/** Pierre chrome — grey hairlines, keep add/delete fills. */
+/** Pierre chrome — grey hairlines, GitHub-dark diff fills, theme token colors untouched. */
 export const pierreUnsafeCSS = /* css */ `
 :host {
   --diffs-font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --diffs-font-size: 13px;
   --diffs-header-font-family: system-ui, -apple-system, sans-serif;
-  --diffs-addition-color-override: #2a3f32;
-  --diffs-deletion-color-override: #3f2a2e;
-  --diffs-modified-color-override: #323844;
-  color: #8b8e94;
+  --diffs-addition-color-override: #3fb950;
+  --diffs-deletion-color-override: #f85149;
+  /* drives selection tint + the hover "+" button */
+  --diffs-modified-color-override: #388bfd;
+  --diffs-bg-addition-override: #1d3326;
+  --diffs-bg-addition-number-override: #22432d;
+  --diffs-bg-addition-emphasis-override: #2c5a37;
+  --diffs-bg-deletion-override: #3a2226;
+  --diffs-bg-deletion-number-override: #4a272b;
+  --diffs-bg-deletion-emphasis-override: #6b2f33;
 }
 
 [data-header],
@@ -31,20 +37,7 @@ export const pierreUnsafeCSS = /* css */ `
 [data-column-number] {
   color: #5c6066;
   border-right: 1px solid #2a2c2e !important;
-}
-
-[data-line-type="change-addition"],
-[data-line-type="change-addition"] [data-line],
-[data-line-type="change-addition"] [data-gutter],
-[data-line-type="change-addition"] [data-column-number] {
-  background-color: #24352c !important;
-}
-
-[data-line-type="change-deletion"],
-[data-line-type="change-deletion"] [data-line],
-[data-line-type="change-deletion"] [data-gutter],
-[data-line-type="change-deletion"] [data-column-number] {
-  background-color: #3a282b !important;
+  cursor: pointer;
 }
 
 [data-line-type="change-addition"],
@@ -52,16 +45,14 @@ export const pierreUnsafeCSS = /* css */ `
   cursor: pointer;
 }
 
-[data-line] span {
-  color: color-mix(in oklab, currentColor 18%, #7a7e85) !important;
+[data-utility-button] {
+  background-color: #1f6feb;
+  color: #fff;
+  transition: transform 80ms ease-out;
 }
 
-[data-line][data-line-type="change-addition"] span {
-  color: color-mix(in oklab, currentColor 35%, #7d9a80) !important;
-}
-
-[data-line][data-line-type="change-deletion"] span {
-  color: color-mix(in oklab, currentColor 35%, #a8888c) !important;
+[data-utility-button]:hover {
+  transform: scale(1.15);
 }
 `;
 
